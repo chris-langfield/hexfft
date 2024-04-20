@@ -63,9 +63,9 @@ def hex_to_pgram(h):
     p[pgram_left] = h[support_below]
     p[pgram_right] = h[support_above]
 
-    return HexArray(p)
+    return HexArray(p, pattern=h.pattern)
 
-def pgram_to_hex(p, N):
+def pgram_to_hex(p, N, pattern="oblique"):
     """
     N is required because there is ambiguity since P=N//2 - 1
     """
@@ -73,8 +73,9 @@ def pgram_to_hex(p, N):
     assert P == N // 2
 
     # compute grid indices for hexagon
+    h = HexArray(np.zeros((N, N), p.dtype), pattern=pattern)
+    support = mersereau_region(h)
     n1, n2 = np.meshgrid(np.arange(N), np.arange(N))
-    support = mersereau_region(HexArray(np.zeros((N, N))))
 
     # compute grid indices for parallelogram
     p1, p2 = np.meshgrid(np.arange(3*P), np.arange(P))
@@ -88,11 +89,10 @@ def pgram_to_hex(p, N):
     pgram_left = p2 > p1 - P
     pgram_right = p2 <= p1 - P
 
-    h = np.zeros((N, N), p.dtype)
     h[support_below] = p[pgram_left]
     h[support_above] = p[pgram_right]
 
-    return HexArray(h)
+    return HexArray(h, pattern=h.pattern)
 
 def pad(x):
     """
