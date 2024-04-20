@@ -1,5 +1,4 @@
 import numpy as np
-import numpy as np
 
 def _generate_indices(shape, pattern):
 
@@ -34,7 +33,7 @@ class HexArray(np.ndarray):
     ...
 
     """
-    def __new__(cls, arr, pattern=""):
+    def __new__(cls, arr, pattern="oblique"):
         # Input array is an already formed ndarray instance
         # We first cast to be our class type
         obj = np.asarray(arr).view(cls)
