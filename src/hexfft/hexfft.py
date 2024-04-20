@@ -20,7 +20,7 @@ def fft(x, hexcrop=False, periodicity="rect", dtype=np.float32):
         N = x.shape[0]
         px = hex_to_pgram(x)
         PX = mersereau_fft(px)
-        return pgram_to_hex(PX, N)
+        return pgram_to_hex(PX, N, pattern=x.pattern)
 
     # rectangular region
     assert x.shape[1] % 2 == 0
@@ -36,7 +36,7 @@ def ifft(X, hexcrop=False, periodicity="rect", dtype=np.complex64):
         N = X.shape[0]
         PX = hex_to_pgram(X)
         px = mersereau_ifft(PX)
-        return pgram_to_hex(px, N)
+        return pgram_to_hex(px, N, pattern=X.pattern)
 
     # rectangular region
     assert X.shape[1] % 2 == 0
@@ -56,7 +56,7 @@ def mersereau_fft(px):
     H = _hexdft_pgram(px[1::2, ::2]).T
     I = _hexdft_pgram(px[1::2, 1::2]).T
 
-    PX = HexArray(np.zeros_like(px.T, cdtype))
+    PX = HexArray(np.zeros_like(px.T, cdtype), pattern="oblique")
 
     # compute the sets of 4 indices which re-use the 
     # precomputed arrays above (eqns 49-52)
@@ -123,7 +123,7 @@ def mersereau_ifft(PX):
     H = _hexidft_pgram(PX[1::2, ::2]).T
     I = _hexidft_pgram(PX[1::2, 1::2]).T
 
-    px = HexArray(np.zeros_like(PX.T, cdtype))
+    px = HexArray(np.zeros_like(PX.T, cdtype), pattern="oblique")
     
     # compute the sets of 4 indices which re-use the 
     # precomputed arrays above (eqns 49-52)
@@ -178,12 +178,11 @@ def mersereau_ifft(PX):
         
 def fftshift(X):
     N = X.shape[0]
-    n1, n2 = np.meshgrid(np.arange(N), np.arange(N))
+    n1, n2 = X._indices
     m = mersereau_region(X).astype(bool)
-
-    shifted = HexArray(np.zeros_like(X))
+    shifted = HexArray(np.zeros_like(X), X.pattern)
     regI = (n1 < N//2) & (n2 < N//2)
-    regII = m & (n1 < n2) & (n2 >= N // 2) 
+    regII = m & (n1 < n2) & (n2 >= N // 2)
     regIII = m & (n2 <= n1) & (n1 >= N//2)
 
     _regI = (n1 >= N//2) & (n2 >= N//2)
@@ -360,7 +359,7 @@ def _rect_dft_slow(x):
     N1, N2 = x.shape
     n1, n2 = np.meshgrid(np.arange(N1), np.arange(N2), indexing="ij")
     kern = rect_kernel(n1, n2, cdtype)
-    X = np.zeros(x.shape, cdtype)
+    X = HexArray(np.zeros(x.shape, cdtype), "offset")
     for w1 in range(N1):
         for w2 in range(N2):
             X[w1, w2] = np.sum(kern[w1, w2, :, :] * x)
@@ -373,7 +372,7 @@ def _rect_idft_slow(X):
     N1, N2 = X.shape
     n1, n2 = np.meshgrid(np.arange(N1), np.arange(N2), indexing="ij")
     kern = np.conj(rect_kernel(n1, n2, cdtype))
-    x = np.zeros(X.shape, cdtype)
+    x = HexArray(np.zeros(X.shape, cdtype), "offset")
     for x1 in range(N1):
         for x2 in range(N2):
             x[x1, x2] = np.sum(kern[:, :, x1, x2] * X)
