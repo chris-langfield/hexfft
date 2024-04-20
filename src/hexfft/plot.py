@@ -1,6 +1,41 @@
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib.patches as mpatches
+from matplotlib.collections import PatchCollection
 from hexfft.utils import heshgrid, skew_heshgrid
+
+
+def hexshow(h, ax = None, **args):
+    N1, N2 = h.shape
+    pattern = h.pattern
+    assert np.isrealobj(h), f"Arrays of dtype {h.dtype} not supported for hexshow()"
+    if pattern == "oblique":
+        x1, x2 = skew_heshgrid(
+                (N1, N2), 
+                matrix = np.array([[1,0], [-1/2, np.sqrt(3)/2]]),
+            )
+    elif pattern == "offset":
+        x1, x2 = heshgrid((N1, N2))
+
+    patches = []
+    for i in range(N1):
+        for j in range(N2):
+            _x1, _x2 = x1[i, j], x2[i, j]
+            polygon = mpatches.RegularPolygon([_x1, _x2], 6, radius=.6,
+            linewidth=0)
+            patches.append(polygon)
+        
+    c = PatchCollection(patches, alpha=1.0, match_original=True)
+
+    if ax is None:
+        fig, ax = plt.subplots()
+    ax.add_collection(c)
+    c.set(array=h.ravel(), **args)
+    ax.set_xlim(0, N2)
+    ax.set_ylim(0, N1)
+    ax.axis("equal")
+    return c
+
 
 class ObliqueArray:
     def __init__(self, shape, matrix=None, dtype=np.float64):
