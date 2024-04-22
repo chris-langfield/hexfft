@@ -80,5 +80,36 @@ def rect_shift(hx):
 
     return HexArray(out, pattern="oblique")
 
+def rect_unshift(hx):
+    """
+    UnShift a rectangular periodic region of support
+    to a parallelogram for the hexfft with rectangular
+    periodicity. See Ehrhardt eqn (9) and fig (4)
+
+    :param hx: a HexArray with "oblique" coordinates.
+    :return: a HexArray with "offset" coordinates with the data
+        from hx shifted onto the parallelogram region of support. 
+    """
+    out = HexArray(np.zeros(hx.shape, hx.dtype), "offset")
+
+    # oblique coordinates
+    n1, n2 = hx._indices
+
+    # oblique coordinates of new region
+    f1, f2 = out._indices
+    
+    # slice from rectangular region to shift
+    upper_triangle = f2 >= hx.shape[1]
+
+    # slice of parallelogram region to transplant the upper triangle
+    left_corner = n1 >= 2*n2 + 1
+
+    # transplant slice
+    
+    out[upper_triangle.T] = hx[left_corner.T]
+    out[~upper_triangle.T] = hx[~left_corner.T]
+
+    return out
+
 
 
