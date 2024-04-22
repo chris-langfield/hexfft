@@ -7,7 +7,7 @@ in Proceedings of the IEEE, vol. 67, no. 6, pp. 930-949, June 1979, doi: 10.1109
 
 import numpy as np
 from hexfft.utils import mersereau_region, hex_to_pgram, pgram_to_hex
-from hexfft.array import HexArray
+from hexfft.array import HexArray, rect_shift, rect_unshift
 
 
 def fft(x, hexcrop=False, periodicity="rect", dtype=np.float32):
@@ -27,7 +27,8 @@ def fft(x, hexcrop=False, periodicity="rect", dtype=np.float32):
 
     # rectangular region
     assert x.shape[1] % 2 == 0
-    return _rect_dft_slow(x)
+    X = _rect_dft_slow(rect_shift(x))
+    return rect_unshift(X)
 
 
 def ifft(X, hexcrop=False, periodicity="rect", dtype=np.complex64):
@@ -46,7 +47,8 @@ def ifft(X, hexcrop=False, periodicity="rect", dtype=np.complex64):
 
     # rectangular region
     assert X.shape[1] % 2 == 0
-    return _rect_idft_slow(X)
+    x = _rect_idft_slow(rect_shift(x))
+    return rect_unshift(x)
 
 
 def mersereau_fft(px):
@@ -187,7 +189,7 @@ def mersereau_ifft(PX):
 
 def fftshift(X):
     N = X.shape[0]
-    n1, n2 = X._indices
+    n1, n2 = X.indices
     m = mersereau_region(X).astype(bool)
     shifted = HexArray(np.zeros_like(X), X.pattern)
     if X.pattern == "oblique":
@@ -214,16 +216,16 @@ def fftshift(X):
         _regII = m & (n1 > n2) & (n2 < N // 2)
         _regIII = m & (n2 >= n1) & (n1 < N // 2)
 
-        shifted[regI.T] = X[_regI.T]
-        shifted[regII.T] = X[_regII.T]
-        shifted[regIII.T] = X[_regIII.T]
+        shifted[_regI.T] = X[regI.T]
+        shifted[_regII.T] = X[regII.T]
+        shifted[_regIII.T] = X[regIII.T]
 
     return shifted
 
 
 def ifftshift(X):
     N = X.shape[0]
-    n1, n2 = X._indices
+    n1, n2 = X.indices
     m = mersereau_region(X).astype(bool)
     shifted = HexArray(np.zeros_like(X), X.pattern)
 
@@ -251,9 +253,9 @@ def ifftshift(X):
         _regII = m & (n1 > n2) & (n2 < N // 2)
         _regIII = m & (n2 >= n1) & (n1 < N // 2)
 
-        shifted[_regI.T] = X[regI.T]
-        shifted[_regII.T] = X[regII.T]
-        shifted[_regIII.T] = X[regIII.T]
+        shifted[regI.T] = X[_regI.T]
+        shifted[regII.T] = X[_regII.T]
+        shifted[regIII.T] = X[_regIII.T]
 
     return shifted
 

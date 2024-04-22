@@ -148,7 +148,7 @@ def test_hexarray():
     # make sure the indices are in oblique coordinates by default
     # this corresponds to a 3x3 parallopiped
     hx = HexArray(arr)
-    n1, n2 = hx._indices
+    n1, n2 = hx.indices
     t1, t2 = np.meshgrid(np.arange(3), np.arange(3))
     assert np.all(n1 == t1)
     assert np.all(n2 == t2)
@@ -156,7 +156,7 @@ def test_hexarray():
     # make sure internal representation in oblique coords is correct
     # when given an array with offset coordinates
     hx = HexArray(arr, pattern="offset")
-    n1, n2 = hx._indices
+    n1, n2 = hx.indices
     t1, t2 = np.meshgrid(np.arange(3), np.arange(3))
 
     # the row coordinates remain the same
@@ -168,7 +168,7 @@ def test_hexarray():
     # test the pattern
     arr = np.ones((4, 5))
     hx = HexArray(arr, pattern="offset")
-    n1, n2 = hx._indices
+    n1, n2 = hx.indices
     col_indices = np.array([[i, i + 1, i + 1, i + 2] for i in range(5)])
     assert np.all(n2 == col_indices)
 

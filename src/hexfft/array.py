@@ -1,4 +1,5 @@
 import numpy as np
+from hexfft.grids import heshgrid, skew_heshgrid
 
 
 def _generate_indices(shape, pattern):
@@ -12,6 +13,13 @@ def _generate_indices(shape, pattern):
         n2 += row_shift
 
     return n1, n2
+
+def _generate_grid(shape, pattern):
+
+    if pattern == "oblique":
+        return skew_heshgrid(shape)
+    elif pattern == "offset":
+        return heshgrid(shape)
 
 
 class HexArray(np.ndarray):
@@ -39,7 +47,8 @@ class HexArray(np.ndarray):
         obj = np.asarray(arr).view(cls)
         # add the new attribute to the created instance
         obj.pattern = pattern
-        obj._indices = _generate_indices(arr.shape, pattern)
+        obj.indices = _generate_indices(arr.shape, pattern)
+        obj.grid = _generate_grid(arr.shape, pattern)
         # Finally, we must return the newly created object:
         return obj
 
@@ -48,7 +57,8 @@ class HexArray(np.ndarray):
         if obj is None:
             return
         self.pattern = getattr(obj, "pattern", None)
-        self._indices = getattr(obj, "_indices", None)
+        self.indices = getattr(obj, "indices", None)
+        self.grid = getattr(obj, "grid", None)
 
 
 def rect_shift(hx):
@@ -62,7 +72,7 @@ def rect_shift(hx):
         from hx shifted onto the parallelogram region of support.
     """
     # oblique coordinates
-    f1, f2 = hx._indices
+    f1, f2 = hx.indices
 
     # oblique coordinates of new region
     N1, N2 = hx.shape
@@ -95,10 +105,10 @@ def rect_unshift(hx):
     out = HexArray(np.zeros(hx.shape, hx.dtype), "offset")
 
     # oblique coordinates
-    n1, n2 = hx._indices
+    n1, n2 = hx.indices
 
     # oblique coordinates of new region
-    f1, f2 = out._indices
+    f1, f2 = out.indices
 
     # slice from rectangular region to shift
     upper_triangle = f2 >= hx.shape[1]
