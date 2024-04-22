@@ -14,7 +14,7 @@ def mersereau_region(h):
     """
     N1, N2 = h.shape
     assert N1 == N2, "Only square arrays are allowed."
-    #assert N1 % 2 == 0, "Side length must be even."
+    # assert N1 % 2 == 0, "Side length must be even."
     n1, n2 = h._indices
     M = N1 // 2
     if h.pattern == "offset":
@@ -25,21 +25,21 @@ def mersereau_region(h):
     I = (-M <= n1 - n2) & (n1 - n2 < M)
     condm = G & H & I
     mreg = condm.astype(float)
-    assert np.sum(mreg) == 3 * M ** 2
+    assert np.sum(mreg) == 3 * M**2
 
     if h.pattern == "offset":
         mreg = np.flip(mreg.T)
 
     return mreg
-    
+
 
 def hex_to_pgram(h):
     """
     h is a square hexarray grid in oblique coordinates
-    assuming the signal in h has periodic support on the corresponding 
+    assuming the signal in h has periodic support on the corresponding
     Mersereau region, rearrange onto the equivalent parallelogram
     shaped region (in oblique coordinates).
-    If h is NxN, then the size of the parallelogram 
+    If h is NxN, then the size of the parallelogram
     will be (N//2, 3*(N//2))
     """
     # compute grid indices for hexagon in oblique coords
@@ -48,7 +48,7 @@ def hex_to_pgram(h):
     support = mersereau_region(h)
     # compute grid indices for parallelogram
     P = N // 2
-    p1, p2 = np.meshgrid(np.arange(3*P), np.arange(P))
+    p1, p2 = np.meshgrid(np.arange(3 * P), np.arange(P))
 
     # indices of the two halves of the hexagon
     # which be rearranged into a parallelogram
@@ -59,11 +59,12 @@ def hex_to_pgram(h):
     pgram_left = p2 > p1 - P
     pgram_right = p2 <= p1 - P
 
-    p = np.zeros((P, 3*P), h.dtype)
+    p = np.zeros((P, 3 * P), h.dtype)
     p[pgram_left] = h[support_below]
     p[pgram_right] = h[support_above]
 
     return HexArray(p, pattern=h.pattern)
+
 
 def pgram_to_hex(p, N, pattern="oblique"):
     """
@@ -78,9 +79,9 @@ def pgram_to_hex(p, N, pattern="oblique"):
     n1, n2 = np.meshgrid(np.arange(N), np.arange(N))
 
     # compute grid indices for parallelogram
-    p1, p2 = np.meshgrid(np.arange(3*P), np.arange(P))
+    p1, p2 = np.meshgrid(np.arange(3 * P), np.arange(P))
 
-     # indices of the two halves of the hexagon
+    # indices of the two halves of the hexagon
     # which be rearranged into a parallelogram
     support_below = support.astype(bool) & (n2 < P)
     support_above = support.astype(bool) & (n2 >= P)
@@ -94,6 +95,7 @@ def pgram_to_hex(p, N, pattern="oblique"):
 
     return HexArray(h, pattern=h.pattern)
 
+
 def pad(x):
     """
     Given an NxN array x, find the enclosing Mersereau
@@ -102,17 +104,17 @@ def pad(x):
     assert x.shape[0] == x.shape[1]
 
     # Create a Mersereau hexagonal region of size N
-    P = x.shape[0] # i.e. = N
+    P = x.shape[0]  # i.e. = N
     # Parallelogram (square in oblique coordinates) enclosing
-    M = 2*(P+1)
+    M = 2 * (P + 1)
     m1, m2 = np.meshgrid(np.arange(M), np.arange(M))
     grid = np.zeros((M, M), x.dtype)
-    grid[int(P//2):P + int(P//2), int(P//2):P + int(P//2)] = x
+    grid[int(P // 2) : P + int(P // 2), int(P // 2) : P + int(P // 2)] = x
 
     return grid
-    
 
-def heshgrid(shape, t=(1., 1.), dtype=np.float64):
+
+def heshgrid(shape, t=(1.0, 1.0), dtype=np.float64):
     """
 
     Returns coordinates for a *regularly* hexagonally sampled rectangular
@@ -125,15 +127,17 @@ def heshgrid(shape, t=(1., 1.), dtype=np.float64):
     x, y = heshgrid((10,10), (1,1))
     plt.scatter(x,y)
 
-    :param shape: (nrows, ncols) 
+    :param shape: (nrows, ncols)
     :param t: (t1, t2) sample distance in x and y
     :return: x and y grid points for hexagonal sampling
     of the region t1*nr x t2*nc
     """
     nr, nc = shape
     t1, t2 = t
-    x0, y0 = np.meshgrid(np.arange(0, t1*nc, t1), np.arange(0, t2*nr, 2*t2))
-    x1, y1 = np.meshgrid(np.arange(t1/2, t1*nc + t1/2, t1), np.arange(t2, t2*nr + t2, 2*t2))
+    x0, y0 = np.meshgrid(np.arange(0, t1 * nc, t1), np.arange(0, t2 * nr, 2 * t2))
+    x1, y1 = np.meshgrid(
+        np.arange(t1 / 2, t1 * nc + t1 / 2, t1), np.arange(t2, t2 * nr + t2, 2 * t2)
+    )
     outx = np.zeros((nr, nc), dtype)
     outy = np.zeros((nr, nc), dtype)
     outx[::2, :] = x0
@@ -141,6 +145,7 @@ def heshgrid(shape, t=(1., 1.), dtype=np.float64):
     outy[::2, :] = y0
     outy[1::2, :] = y1
     return outx, outy
+
 
 def skew_heshgrid(shape, matrix=None, dtype=np.float64):
     """
@@ -160,13 +165,13 @@ def skew_heshgrid(shape, matrix=None, dtype=np.float64):
     """
     if matrix is None:
         # regular hexagonal grid
-        matrix = np.array([[1,0], [-1/2, np.sqrt(3)/2]])
+        matrix = np.array([[1, 0], [-1 / 2, np.sqrt(3) / 2]])
     nr, nc = shape
     b0 = matrix[0, :]
     b1 = matrix[1, :]
     # make sure the matrix has rank 2
     assert np.linalg.det(matrix) != 0, "Basis vectors are not linearly independent"
-    x = np.tile(np.arange(nc), (nr,1))
+    x = np.tile(np.arange(nc), (nr, 1))
     shiftx = np.arange(nr) * b1[0]
     x = (x + np.tile(shiftx, (nc, 1)).T) * b0[0]
     y = np.tile(np.arange(nr), (nc, 1)).T
@@ -175,11 +180,12 @@ def skew_heshgrid(shape, matrix=None, dtype=np.float64):
 
     return x, y
 
+
 def nice_test_function(n1, n2, mersereau=True):
     h = HexArray(np.zeros(n1.shape), pattern="oblique")
     if mersereau:
         m = mersereau_region(h)
     else:
-        m = 1.
-    h[:,:] = (np.cos(n1) + 2 * np.sin((n1 - n2)/4)) * m
+        m = 1.0
+    h[:, :] = (np.cos(n1) + 2 * np.sin((n1 - n2) / 4)) * m
     return h

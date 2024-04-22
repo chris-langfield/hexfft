@@ -1,23 +1,39 @@
 from hexfft import fftshift, ifftshift, HexArray
-from hexfft.hexfft import _hexdft_pgram, _hexidft_pgram, _rect_dft_slow, _rect_idft_slow, mersereau_fft, mersereau_ifft, hexdft, hexidft
-from hexfft.utils import mersereau_region, pgram_to_hex, nice_test_function, hex_to_pgram
+from hexfft.hexfft import (
+    _hexdft_pgram,
+    _hexidft_pgram,
+    _rect_dft_slow,
+    _rect_idft_slow,
+    mersereau_fft,
+    mersereau_ifft,
+    hexdft,
+    hexidft,
+)
+from hexfft.utils import (
+    mersereau_region,
+    pgram_to_hex,
+    nice_test_function,
+    hex_to_pgram,
+)
 from hexfft.array import rect_shift, rect_unshift
 import numpy as np
 
+
 def hregion(n1, n2, center, size):
     """
-    return mask for a hexagonal region of support 
+    return mask for a hexagonal region of support
     with side length size centered at center
     """
     h1, h2 = center
-    A = (n2 < h2 + size)
-    B = (n2 > h2 - size)
-    C = (n1 > h1 - size)
-    D = (n1 < h2 + size)
+    A = n2 < h2 + size
+    B = n2 > h2 - size
+    C = n1 > h1 - size
+    D = n1 < h2 + size
     E = n2 < n1 + (h2 - h1) + size
     F = n2 > n1 + (h2 - h1) - size
     cond = A & B & C & D & E & F
     return HexArray(cond.astype(int))
+
 
 def test_slow_hexdft():
     # testing in float64
@@ -39,9 +55,10 @@ def test_slow_hexdft():
 
         assert np.allclose(impulse * m, impulse_T * m, atol=1e-12)
 
+
 def test_pgram_hexdft():
     # test dft on 3N x N parallelogram
-    
+
     for size in [5, 6, 20, 21, 50, 51]:
         n1, n2 = np.meshgrid(np.arange(size), np.arange(size))
         N = n1.shape[0]
@@ -58,6 +75,7 @@ def test_pgram_hexdft():
 
         assert np.allclose(impulse_p, impulse_p_T, atol=1e-12)
 
+
 def test_rect_hexdft():
     # test rect dft and idft
     for size in [4, 5, 8, 9, 16, 17]:
@@ -72,7 +90,8 @@ def test_rect_hexdft():
         dd = _rect_idft_slow(D)
 
         assert np.allclose(d, dd, atol=1e-12)
-        
+
+
 def test_mersereau_fft():
     # testing in float64
 
@@ -104,6 +123,7 @@ def test_mersereau_fft():
         assert np.allclose(dd_slow, dd, atol=1e-12)
         assert np.allclose(xx_slow, xx, atol=1e-12)
 
+
 def test_fftshift():
     for size in [8, 16, 32]:
         n1, n2 = np.meshgrid(np.arange(size), np.arange(size))
@@ -119,6 +139,7 @@ def test_fftshift():
         hh_offset = ifftshift(shifted_offset)
         assert np.allclose(h_oblique, hh_oblique, atol=1e-12)
         assert np.allclose(h_offset, hh_offset, atol=1e-12)
+
 
 def test_hexarray():
 
@@ -141,13 +162,7 @@ def test_hexarray():
     # the row coordinates remain the same
     assert np.all(n1 == t1)
     # the column coordinates however...
-    col_indices = np.array(
-        [
-            [0, 1, 1],
-            [1, 2, 2],
-            [2, 3, 3]
-        ]
-    )
+    col_indices = np.array([[0, 1, 1], [1, 2, 2], [2, 3, 3]])
     assert np.all(n2 == col_indices)
 
     # test the pattern
@@ -156,6 +171,7 @@ def test_hexarray():
     n1, n2 = hx._indices
     col_indices = np.array([[i, i + 1, i + 1, i + 2] for i in range(5)])
     assert np.all(n2 == col_indices)
+
 
 def test_rect_shift():
     # test with 4x3 shape
@@ -187,4 +203,3 @@ def test_rect_shift():
     assert np.abs(np.sum(h) - np.sum(shifted)) < 1e-12
     # test reverse
     assert np.allclose(h, rect_unshift(shifted))
-
