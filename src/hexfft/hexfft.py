@@ -181,37 +181,69 @@ def fftshift(X):
     n1, n2 = X._indices
     m = mersereau_region(X).astype(bool)
     shifted = HexArray(np.zeros_like(X), X.pattern)
-    regI = (n1 < N//2) & (n2 < N//2)
-    regII = m & (n1 < n2) & (n2 >= N // 2)
-    regIII = m & (n2 <= n1) & (n1 >= N//2)
+    if X.pattern == "oblique":
+        regI = (n1 < N//2) & (n2 < N//2)
+        regII = m & (n1 < n2) & (n2 >= N // 2)
+        regIII = m & (n2 <= n1) & (n1 >= N//2)
 
-    _regI = (n1 >= N//2) & (n2 >= N//2)
-    _regII = m & (n1 >= n2) & (n2 < N//2)
-    _regIII = m & (n2 > n1) & (n1 < N//2)
+        _regI = (n1 >= N//2) & (n2 >= N//2)
+        _regII = m & (n1 >= n2) & (n2 < N//2)
+        _regIII = m & (n2 > n1) & (n1 < N//2)
 
-    shifted[_regI] = X[regI]
-    shifted[_regII] = X[regII]
-    shifted[_regIII] = X[regIII]
+        shifted[_regI] = X[regI]
+        shifted[_regII] = X[regII]
+        shifted[_regIII] = X[regIII]
+
+    elif X.pattern == "offset":
+        m = m.T
+        n2 = n2 - N//4
+        regI = m & (n1 < N//2) & (n2 < N//2)
+        regII = m & (n1 <= n2) & (n2 >= N // 2)
+        regIII = m & (n2 < n1) & (n1 >= N//2)
+
+        _regI = m & (n1 >= N//2) & (n2 >= N//2)
+        _regII = m & (n1 > n2) & (n2 < N//2)
+        _regIII = m & (n2 >= n1) & (n1 < N//2)
+
+        shifted[regI.T] = X[_regI.T]
+        shifted[regII.T] = X[_regII.T]
+        shifted[regIII.T] = X[_regIII.T]
 
     return shifted
 
 def ifftshift(X):
     N = X.shape[0]
-    n1, n2 = np.meshgrid(np.arange(N), np.arange(N))
+    n1, n2 = X._indices
     m = mersereau_region(X).astype(bool)
+    shifted = HexArray(np.zeros_like(X), X.pattern)
 
-    shifted = HexArray(np.zeros_like(X))
-    _regI = (n1 < N//2) & (n2 < N//2)
-    _regII = m & (n1 < n2) & (n2 >= N // 2) 
-    _regIII = m & (n2 <= n1) & (n1 >= N//2)
+    if X.pattern == "oblique":
+        _regI = (n1 < N//2) & (n2 < N//2)
+        _regII = m & (n1 < n2) & (n2 >= N // 2) 
+        _regIII = m & (n2 <= n1) & (n1 >= N//2)
 
-    regI = (n1 >= N//2) & (n2 >= N//2)
-    regII = m & (n1 >= n2) & (n2 < N//2)
-    regIII = m & (n2 > n1) & (n1 < N//2)
+        regI = (n1 >= N//2) & (n2 >= N//2)
+        regII = m & (n1 >= n2) & (n2 < N//2)
+        regIII = m & (n2 > n1) & (n1 < N//2)
 
-    shifted[_regI] = X[regI]
-    shifted[_regII] = X[regII]
-    shifted[_regIII] = X[regIII]
+        shifted[_regI] = X[regI]
+        shifted[_regII] = X[regII]
+        shifted[_regIII] = X[regIII]
+
+    elif X.pattern == "offset":
+        m = m.T
+        n2 = n2 - N//4
+        regI = m & (n1 < N//2) & (n2 < N//2)
+        regII = m & (n1 <= n2) & (n2 >= N // 2)
+        regIII = m & (n2 < n1) & (n1 >= N//2)
+
+        _regI = m & (n1 >= N//2) & (n2 >= N//2)
+        _regII = m & (n1 > n2) & (n2 < N//2)
+        _regIII = m & (n2 >= n1) & (n1 < N//2)
+
+        shifted[_regI.T] = X[regI.T]
+        shifted[_regII.T] = X[regII.T]
+        shifted[_regIII.T] = X[regIII.T]
 
     return shifted
 
