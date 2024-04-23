@@ -26,7 +26,7 @@ def fft(x, hexcrop=False, periodicity="rect", dtype=np.float32):
         return pgram_to_hex(PX, N, pattern=x.pattern)
 
     # rectangular region
-    assert x.shape[1] % 2 == 0
+    #assert x.shape[1] % 2 == 0
     X = _rect_dft_slow(rect_shift(x))
     return rect_unshift(X)
 
@@ -46,8 +46,8 @@ def ifft(X, hexcrop=False, periodicity="rect", dtype=np.complex64):
         return pgram_to_hex(px, N, pattern=X.pattern)
 
     # rectangular region
-    assert X.shape[1] % 2 == 0
-    x = _rect_idft_slow(rect_shift(x))
+    #assert X.shape[1] % 2 == 0
+    x = _rect_idft_slow(rect_shift(X))
     return rect_unshift(x)
 
 
@@ -420,7 +420,7 @@ def _rect_dft_slow(x):
     N1, N2 = x.shape
     n1, n2 = np.meshgrid(np.arange(N1), np.arange(N2), indexing="ij")
     kern = rect_kernel(n1, n2, cdtype)
-    X = HexArray(np.zeros(x.shape, cdtype), "offset")
+    X = HexArray(np.zeros(x.shape, cdtype), "oblique")
     for w1 in range(N1):
         for w2 in range(N2):
             X[w1, w2] = np.sum(kern[w1, w2, :, :] * x)
@@ -434,7 +434,7 @@ def _rect_idft_slow(X):
     N1, N2 = X.shape
     n1, n2 = np.meshgrid(np.arange(N1), np.arange(N2), indexing="ij")
     kern = np.conj(rect_kernel(n1, n2, cdtype))
-    x = HexArray(np.zeros(X.shape, cdtype), "offset")
+    x = HexArray(np.zeros(X.shape, cdtype), "oblique")
     for x1 in range(N1):
         for x2 in range(N2):
             x[x1, x2] = np.sum(kern[:, :, x1, x2] * X)
