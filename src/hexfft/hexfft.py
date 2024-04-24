@@ -10,6 +10,7 @@ from hexfft.utils import mersereau_region, hex_to_pgram, pgram_to_hex
 from hexfft.array import HexArray, rect_shift, rect_unshift
 
 import logging
+
 _logger = logging.getLogger("hexfft")
 
 
@@ -64,11 +65,13 @@ class RectPeriodicFFT(HexagonalFFT):
     def _forward(self, x):
         assert x.shape[-2:] == self.shape
         if isinstance(x, HexArray) and x.pattern == "oblique":
-            _logger.warn("Passing HexArray with 'oblique' sampling pattern to "
-                         "a rectangular periodic FFT.")
+            _logger.warn(
+                "Passing HexArray with 'oblique' sampling pattern to "
+                "a rectangular periodic FFT."
+            )
         else:
             x = HexArray(x, "offset")
-        
+
         x = rect_shift(x)
 
         squeeze = x.ndim == 2
@@ -85,13 +88,14 @@ class RectPeriodicFFT(HexagonalFFT):
         return rect_unshift(HexArray(X, "oblique"))
 
     def _inverse(self, X):
-
         if isinstance(X, HexArray) and X.pattern == "oblique":
-            _logger.warn("Passing HexArray with 'oblique' sampling pattern to "
-                         "a rectangular periodic FFT.")
-        
+            _logger.warn(
+                "Passing HexArray with 'oblique' sampling pattern to "
+                "a rectangular periodic FFT."
+            )
+
         X = rect_shift(X)
-        squeeze =  X.ndim == 2
+        squeeze = X.ndim == 2
         if squeeze:
             X = np.expand_dims(X, 0)
         F2 = np.fft.ifft(X, axis=2)
@@ -102,7 +106,7 @@ class RectPeriodicFFT(HexagonalFFT):
             x = np.squeeze(x)
 
         return rect_unshift(x)
-        
+
 
 def fft(x, hexcrop=False, periodicity="rect", dtype=np.float32):
     if periodicity == "rect":

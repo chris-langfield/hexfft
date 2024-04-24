@@ -12,7 +12,7 @@ def hexshow(h, ax=None, **args):
     if pattern == "oblique":
         x1, x2 = skew_heshgrid(
             (N1, N2),
-            matrix=np.array([[1, 0], [-1/np.sqrt(3), 1]]),
+            matrix=np.array([[1, 0], [-1 / np.sqrt(3), 1]]),
         )
     elif pattern == "offset":
         x1, x2 = heshgrid((N1, N2))
@@ -111,14 +111,11 @@ class ObliqueArray:
 
 
 class OffsetArray:
-
     def __init__(self, shape, dtype=np.float64):
-
         self.shape = shape
         self.dtype = dtype
 
     def meshgrid(self):
-
         return heshgrid(self.shape)
 
     def plot(self, z, ax=None, s=None, **args):

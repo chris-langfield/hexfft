@@ -10,7 +10,7 @@ from hexfft.hexfft import (
     rect_ifft,
     hexdft,
     hexidft,
-    FFT
+    FFT,
 )
 from hexfft.utils import (
     mersereau_region,
@@ -125,13 +125,17 @@ def test_rect_fft_stack():
     DATA_STACK = fftobj.forward(data)
 
     data_shifted = rect_shift(data)
-    DATA_LOOP = np.stack([rect_unshift(rect_fft(data_shifted[i])) for i in range(nstack)])
+    DATA_LOOP = np.stack(
+        [rect_unshift(rect_fft(data_shifted[i])) for i in range(nstack)]
+    )
     DATA_LOOP = HexArray(DATA_LOOP, "offset")
 
     assert np.allclose(DATA_STACK, DATA_LOOP)
 
     ddata_stack = fftobj.inverse(DATA_STACK)
-    ddata_loop = np.stack([rect_unshift(rect_ifft(rect_shift(DATA_LOOP[i]))) for i in range(nstack)])
+    ddata_loop = np.stack(
+        [rect_unshift(rect_ifft(rect_shift(DATA_LOOP[i]))) for i in range(nstack)]
+    )
     ddata_loop = HexArray(ddata_loop, "offset")
 
     assert np.allclose(ddata_stack, ddata_loop)
@@ -145,8 +149,6 @@ def test_rect_fft_stack():
     dds_stack = fftobj.inverse(DS_STACK)
     dds_single = rect_unshift(rect_ifft(rect_shift(DS_SINGLE)))
     assert np.allclose(dds_stack, dds_single)
-
-
 
 
 def test_mersereau_fft():
@@ -260,6 +262,7 @@ def test_rect_shift():
     # test reverse
     assert np.allclose(h, rect_unshift(shifted))
 
+
 def test_rect_shift_stack():
     # test with 4x3 shape
     N1, N2 = 4, 3
@@ -276,4 +279,3 @@ def test_rect_shift_stack():
     assert np.abs(np.sum(h) - np.sum(shifted)) < 1e-12
     # test reverse
     assert np.allclose(h, rect_unshift(shifted))
-

@@ -15,7 +15,6 @@ def _generate_indices(shape, pattern):
 
 
 def _generate_grid(shape, pattern):
-
     if pattern == "oblique":
         return skew_heshgrid(shape)
     elif pattern == "offset":
@@ -128,5 +127,5 @@ def rect_unshift(hx):
     elif hx.ndim == 3:
         out[:, upper_triangle.T] = hx[:, left_corner.T]
         out[:, ~upper_triangle.T] = hx[:, ~left_corner.T]
-    
+
     return out

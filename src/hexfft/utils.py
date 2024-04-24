@@ -60,7 +60,7 @@ def hex_to_pgram(h):
 
     if h.ndim == 3:
         nstack = h.shape[0]
-        p = np.zeros((nstack, P, 3*P), h.dtype)
+        p = np.zeros((nstack, P, 3 * P), h.dtype)
         p[:, pgram_left] = h[:, support_below]
         p[:, pgram_right] = h[:, support_above]
 

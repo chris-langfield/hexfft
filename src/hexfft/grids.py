@@ -1,5 +1,6 @@
 import numpy as np
 
+
 def heshgrid(shape, t=(1.0, 1.0), dtype=np.float64):
     """
 
@@ -27,9 +28,9 @@ def heshgrid(shape, t=(1.0, 1.0), dtype=np.float64):
     outx = np.zeros((nr, nc), dtype)
     outy = np.zeros((nr, nc), dtype)
     outx[::2, :] = x0
-    outx[1::2, :] = x1[:nr//2, :]
+    outx[1::2, :] = x1[: nr // 2, :]
     outy[::2, :] = y0
-    outy[1::2, :] = y1[:nr//2,:]
+    outy[1::2, :] = y1[: nr // 2, :]
     return outx, outy
 
 
