@@ -3,7 +3,6 @@ from hexfft.grids import heshgrid, skew_heshgrid
 
 
 def _generate_indices(shape, pattern):
-
     N1, N2 = shape
     n1, n2 = np.meshgrid(np.arange(N1), np.arange(N2))
 
@@ -13,6 +12,7 @@ def _generate_indices(shape, pattern):
         n2 += row_shift
 
     return n1, n2
+
 
 def _generate_grid(shape, pattern):
 
@@ -46,9 +46,10 @@ class HexArray(np.ndarray):
         # We first cast to be our class type
         obj = np.asarray(arr).view(cls)
         # add the new attribute to the created instance
+        assert arr.ndim in [2, 3], "HexArray can only be of dimension 2 or 3."
         obj.pattern = pattern
-        obj.indices = _generate_indices(arr.shape, pattern)
-        obj.grid = _generate_grid(arr.shape, pattern)
+        obj.indices = _generate_indices(arr.shape[-2:], pattern)
+        obj.grid = _generate_grid(arr.shape[-2:], pattern)
         # Finally, we must return the newly created object:
         return obj
 
@@ -75,19 +76,23 @@ def rect_shift(hx):
     f1, f2 = hx.indices
 
     # oblique coordinates of new region
-    N1, N2 = hx.shape
+    N1, N2 = hx.shape[-2:]
     n1, n2 = np.meshgrid(np.arange(N1), np.arange(N2))
 
     # slice from rectangular region to shift
-    upper_triangle = f2 >= hx.shape[1]
+    upper_triangle = f2 >= hx.shape[-1]
 
     # slice of parallelogram region to transplant the upper triangle
     left_corner = n1 >= 2 * n2 + 1
 
     # transplant slice
     out = np.zeros(hx.shape, hx.dtype)
-    out[left_corner.T] = hx[upper_triangle.T]
-    out[~left_corner.T] = hx[~upper_triangle.T]
+    if hx.ndim == 2:
+        out[left_corner.T] = hx[upper_triangle.T]
+        out[~left_corner.T] = hx[~upper_triangle.T]
+    elif hx.ndim == 3:
+        out[:, left_corner.T] = hx[:, upper_triangle.T]
+        out[:, ~left_corner.T] = hx[:, ~upper_triangle.T]
 
     return HexArray(out, pattern="oblique")
 
@@ -111,14 +116,17 @@ def rect_unshift(hx):
     f1, f2 = out.indices
 
     # slice from rectangular region to shift
-    upper_triangle = f2 >= hx.shape[1]
+    upper_triangle = f2 >= hx.shape[-1]
 
     # slice of parallelogram region to transplant the upper triangle
     left_corner = n1 >= 2 * n2 + 1
 
     # transplant slice
-
-    out[upper_triangle.T] = hx[left_corner.T]
-    out[~upper_triangle.T] = hx[~left_corner.T]
-
+    if hx.ndim == 2:
+        out[upper_triangle.T] = hx[left_corner.T]
+        out[~upper_triangle.T] = hx[~left_corner.T]
+    elif hx.ndim == 3:
+        out[:, upper_triangle.T] = hx[:, left_corner.T]
+        out[:, ~upper_triangle.T] = hx[:, ~left_corner.T]
+    
     return out
