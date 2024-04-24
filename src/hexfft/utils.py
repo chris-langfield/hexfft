@@ -1,9 +1,9 @@
 import numpy as np
-from hexfft.array import HexArray
+from hexfft.array import HexArray, _generate_indices
 from hexfft.grids import heshgrid, skew_heshgrid
 
 
-def mersereau_region(h):
+def mersereau_region(N, pattern="oblique"):
     """
     Return a boolean mask of the hexagonally periodic
     region inscribed in the square or parallelopiped region
@@ -13,13 +13,11 @@ def mersereau_region(h):
 
     :param h: a HexArray
     """
-    N1, N2 = h.shape
-    assert N1 == N2, "Only square arrays are allowed."
     # assert N1 % 2 == 0, "Side length must be even."
-    n1, n2 = h.indices
-    M = N1 // 2
-    if h.pattern == "offset":
-        n2 = n2 - N1 // 4
+    n1, n2 = _generate_indices((N, N), pattern)
+    M = N // 2
+    if pattern == "offset":
+        n2 = n2 - N // 4
 
     G = (0 <= n1) & (n1 < 2 * M)
     H = (0 <= n2) & (n2 < 2 * M)
@@ -28,7 +26,7 @@ def mersereau_region(h):
     mreg = condm.astype(float)
     assert np.sum(mreg) == 3 * M**2
 
-    if h.pattern == "offset":
+    if pattern == "offset":
         mreg = np.flip(mreg.T)
 
     return mreg
@@ -44,9 +42,9 @@ def hex_to_pgram(h):
     will be (N//2, 3*(N//2))
     """
     # compute grid indices for hexagon in oblique coords
-    N = h.shape[0]
+    N = h.shape[-1]
     n1, n2 = np.meshgrid(np.arange(N), np.arange(N))
-    support = mersereau_region(h)
+    support = mersereau_region(N, h.pattern)
     # compute grid indices for parallelogram
     P = N // 2
     p1, p2 = np.meshgrid(np.arange(3 * P), np.arange(P))
@@ -60,9 +58,16 @@ def hex_to_pgram(h):
     pgram_left = p2 > p1 - P
     pgram_right = p2 <= p1 - P
 
-    p = np.zeros((P, 3 * P), h.dtype)
-    p[pgram_left] = h[support_below]
-    p[pgram_right] = h[support_above]
+    if h.ndim == 3:
+        nstack = h.shape[0]
+        p = np.zeros((nstack, P, 3*P), h.dtype)
+        p[:, pgram_left] = h[:, support_below]
+        p[:, pgram_right] = h[:, support_above]
+
+    else:
+        p = np.zeros((P, 3 * P), h.dtype)
+        p[pgram_left] = h[support_below]
+        p[pgram_right] = h[support_above]
 
     return HexArray(p, pattern=h.pattern)
 
@@ -76,7 +81,7 @@ def pgram_to_hex(p, N, pattern="oblique"):
 
     # compute grid indices for hexagon
     h = HexArray(np.zeros((N, N), p.dtype), pattern=pattern)
-    support = mersereau_region(h)
+    support = mersereau_region(N, pattern)
     n1, n2 = np.meshgrid(np.arange(N), np.arange(N))
 
     # compute grid indices for parallelogram
@@ -94,7 +99,7 @@ def pgram_to_hex(p, N, pattern="oblique"):
     h[support_below] = p[pgram_left]
     h[support_above] = p[pgram_right]
 
-    return HexArray(h, pattern=h.pattern)
+    return HexArray(h, pattern=pattern)
 
 
 def pad(x):
@@ -115,10 +120,12 @@ def pad(x):
     return grid
 
 
-def nice_test_function(n1, n2, mersereau=True):
-    h = HexArray(np.zeros(n1.shape), pattern="oblique")
+def nice_test_function(shape, mersereau=True, pattern="oblique"):
+    h = HexArray(np.zeros(shape), pattern=pattern)
+    N1, N2 = shape
+    n1, n2 = np.meshgrid(np.arange(N1), np.arange(N2), indexing="ij")
     if mersereau:
-        m = mersereau_region(h)
+        m = mersereau_region(N1, pattern)
     else:
         m = 1.0
     h[:, :] = (np.cos(n1) + 2 * np.sin((n1 - n2) / 4)) * m
