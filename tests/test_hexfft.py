@@ -6,8 +6,11 @@ from hexfft.hexfft import (
     _rect_idft_slow,
     mersereau_fft,
     mersereau_ifft,
+    rect_fft,
+    rect_ifft,
     hexdft,
     hexidft,
+    FFT
 )
 from hexfft.utils import (
     mersereau_region,
@@ -19,7 +22,7 @@ from hexfft.array import rect_shift, rect_unshift
 import numpy as np
 
 
-def hregion(n1, n2, center, size):
+def hregion(n1, n2, center, size, pattern="oblique"):
     """
     return mask for a hexagonal region of support
     with side length size centered at center
@@ -32,7 +35,7 @@ def hregion(n1, n2, center, size):
     E = n2 < n1 + (h2 - h1) + size
     F = n2 > n1 + (h2 - h1) - size
     cond = A & B & C & D & E & F
-    return HexArray(cond.astype(int))
+    return HexArray(cond.astype(int), pattern)
 
 
 def test_slow_hexdft():
@@ -51,7 +54,7 @@ def test_slow_hexdft():
         IMPULSE = hexdft(impulse)
         impulse_T = hexidft(IMPULSE)
 
-        m = mersereau_region(impulse)
+        m = mersereau_region(N)
 
         assert np.allclose(impulse * m, impulse_T * m, atol=1e-12)
 
@@ -92,6 +95,60 @@ def test_rect_hexdft():
         assert np.allclose(d, dd, atol=1e-12)
 
 
+def test_rect_fft():
+    for shape in [(4, 5), (8, 8), (11, 16), (19, 19)]:
+        N1, N2 = shape
+        n1, n2 = np.meshgrid(np.arange(N1), np.arange(N2))
+        center = (N1 // 2 - 1, N2 // 2 - 1)
+        d = rect_shift(hregion(n1, n2, center, 1, "offset"))
+
+        D = rect_fft(d)
+        D_slow = _rect_dft_slow(d)
+
+        assert np.allclose(D, D_slow)
+
+        dd = rect_ifft(rect_unshift(D))
+        dd_slow = _rect_idft_slow(rect_unshift(D_slow))
+
+        assert np.allclose(dd, dd_slow)
+
+
+def test_rect_fft_stack():
+    # create a stack of data
+    nstack, N1, N2 = 5, 8, 12
+    n1, n2 = np.meshgrid(np.arange(N1), np.arange(N2))
+    center = (N1 / 2 - 1, N2 / 2 - 1)
+    data = np.stack([hregion(n1, n2, center, i).T for i in range(1, nstack + 1)])
+    data = HexArray(data, "offset")
+
+    fftobj = FFT((N1, N2), periodicity="rect")
+    DATA_STACK = fftobj.forward(data)
+
+    data_shifted = rect_shift(data)
+    DATA_LOOP = np.stack([rect_unshift(rect_fft(data_shifted[i])) for i in range(nstack)])
+    DATA_LOOP = HexArray(DATA_LOOP, "offset")
+
+    assert np.allclose(DATA_STACK, DATA_LOOP)
+
+    ddata_stack = fftobj.inverse(DATA_STACK)
+    ddata_loop = np.stack([rect_unshift(rect_ifft(rect_shift(DATA_LOOP[i]))) for i in range(nstack)])
+    ddata_loop = HexArray(ddata_loop, "offset")
+
+    assert np.allclose(ddata_stack, ddata_loop)
+
+    # test singleton
+    ds = data[0]
+    DS_STACK = fftobj.forward(ds)
+    DS_SINGLE = rect_unshift(rect_fft(rect_shift(ds)))
+    assert np.allclose(DS_STACK, DS_SINGLE)
+
+    dds_stack = fftobj.inverse(DS_STACK)
+    dds_single = rect_unshift(rect_ifft(rect_shift(DS_SINGLE)))
+    assert np.allclose(dds_stack, dds_single)
+
+
+
+
 def test_mersereau_fft():
     # testing in float64
 
@@ -103,7 +160,7 @@ def test_mersereau_fft():
         # test on an impulse function and on an arbitrary function
         # d for "dirac"
         d = hregion(n1, n2, center, 1)
-        x = nice_test_function(n1, n2)
+        x = nice_test_function((N, N))
         pd = hex_to_pgram(d)
         px = hex_to_pgram(x)
 
@@ -126,10 +183,9 @@ def test_mersereau_fft():
 
 def test_fftshift():
     for size in [8, 16, 32]:
-        n1, n2 = np.meshgrid(np.arange(size), np.arange(size))
-        x = nice_test_function(n1, n2)
-        h_oblique = HexArray(x) * mersereau_region(HexArray(x))
-        h_offset = HexArray(x, "offset") * mersereau_region(HexArray(x, "offset"))
+        x = nice_test_function((size, size))
+        h_oblique = HexArray(x) * mersereau_region(size)
+        h_offset = HexArray(x, "offset") * mersereau_region(size, "offset")
         shifted_oblique = fftshift(h_oblique)
         shifted_offset = fftshift(h_offset)
         assert np.abs(np.sum(h_oblique) - np.sum(shifted_oblique)) < 1e-12
@@ -142,35 +198,35 @@ def test_fftshift():
 
 
 def test_hexarray():
+    # test stack and single image
+    arrs = [np.ones((3, 3)), np.ones((10, 3, 3))]
+    for arr in arrs:
+        # make sure the indices are in oblique coordinates by default
+        # this corresponds to a 3x3 parallopiped
+        hx = HexArray(arr)
+        n1, n2 = hx.indices
+        t1, t2 = np.meshgrid(np.arange(3), np.arange(3))
+        assert np.all(n1 == t1)
+        assert np.all(n2 == t2)
 
-    arr = np.ones((3, 3))
+        # make sure internal representation in oblique coords is correct
+        # when given an array with offset coordinates
+        hx = HexArray(arr, pattern="offset")
+        n1, n2 = hx.indices
+        t1, t2 = np.meshgrid(np.arange(3), np.arange(3))
 
-    # make sure the indices are in oblique coordinates by default
-    # this corresponds to a 3x3 parallopiped
-    hx = HexArray(arr)
-    n1, n2 = hx.indices
-    t1, t2 = np.meshgrid(np.arange(3), np.arange(3))
-    assert np.all(n1 == t1)
-    assert np.all(n2 == t2)
+        # the row coordinates remain the same
+        assert np.all(n1 == t1)
+        # the column coordinates however...
+        col_indices = np.array([[0, 1, 1], [1, 2, 2], [2, 3, 3]])
+        assert np.all(n2 == col_indices)
 
-    # make sure internal representation in oblique coords is correct
-    # when given an array with offset coordinates
-    hx = HexArray(arr, pattern="offset")
-    n1, n2 = hx.indices
-    t1, t2 = np.meshgrid(np.arange(3), np.arange(3))
-
-    # the row coordinates remain the same
-    assert np.all(n1 == t1)
-    # the column coordinates however...
-    col_indices = np.array([[0, 1, 1], [1, 2, 2], [2, 3, 3]])
-    assert np.all(n2 == col_indices)
-
-    # test the pattern
-    arr = np.ones((4, 5))
-    hx = HexArray(arr, pattern="offset")
-    n1, n2 = hx.indices
-    col_indices = np.array([[i, i + 1, i + 1, i + 2] for i in range(5)])
-    assert np.all(n2 == col_indices)
+        # test the pattern
+        arr = np.ones((4, 5))
+        hx = HexArray(arr, pattern="offset")
+        n1, n2 = hx.indices
+        col_indices = np.array([[i, i + 1, i + 1, i + 2] for i in range(5)])
+        assert np.all(n2 == col_indices)
 
 
 def test_rect_shift():
@@ -203,3 +259,21 @@ def test_rect_shift():
     assert np.abs(np.sum(h) - np.sum(shifted)) < 1e-12
     # test reverse
     assert np.allclose(h, rect_unshift(shifted))
+
+def test_rect_shift_stack():
+    # test with 4x3 shape
+    N1, N2 = 4, 3
+    n1, n2 = np.meshgrid(np.arange(N1), np.arange(N2))
+    data = np.stack([np.sin(np.sqrt(n1**2 + n2**2)).T + i for i in range(10)])
+    h = HexArray(data, pattern="offset")
+    shifted = rect_shift(h)
+    # point by point along stack axis
+    assert np.all(h[:, 1, 2] == shifted[:, 1, 0])
+    assert np.all(h[:, 2, 2] == shifted[:, 2, 0])
+    assert np.all(h[:, 3, 2] == shifted[:, 3, 1])
+    assert np.all(h[:, 3, 1] == shifted[:, 3, 0])
+
+    assert np.abs(np.sum(h) - np.sum(shifted)) < 1e-12
+    # test reverse
+    assert np.allclose(h, rect_unshift(shifted))
+
