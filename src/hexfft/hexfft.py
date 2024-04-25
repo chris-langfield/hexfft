@@ -6,7 +6,7 @@ in Proceedings of the IEEE, vol. 67, no. 6, pp. 930-949, June 1979, doi: 10.1109
 """
 
 import numpy as np
-from hexfft.utils import mersereau_region, hex_to_pgram, pgram_to_hex
+from hexfft.utils import hsupport, hex_to_pgram, pgram_to_hex
 from hexfft.array import HexArray, rect_shift, rect_unshift
 
 import logging
@@ -14,9 +14,9 @@ import logging
 _logger = logging.getLogger("hexfft")
 
 
-def FFT(shape, periodicity="rect", dtype=np.float32):
+def FFT(shape, periodicity="rect", dtype=np.complex128):
     if periodicity == "hex":
-        raise NotImplementedError("Stack FFT not implemented yet for hex periodicity")
+        return HexPeriodicFFT(shape, dtype)
     elif periodicity == "rect":
         return RectPeriodicFFT(shape, dtype)
 
@@ -39,16 +39,158 @@ class HexagonalFFT:
 
 class HexPeriodicFFT(HexagonalFFT):
     def __init__(self, shape, dtype):
-        super().__init__(self, shape, dtype)
+        super().__init__(shape, dtype)
 
     def _precompute(self):
-        pass
+        N = self.shape[0]
+        M = N // 2
+
+        self.L = np.zeros((3 * M, M), int)
+        Q = int(3 * M / 2)
+
+        for i in range(int(M / 2)):
+            _ind = np.concatenate([np.arange(i * Q, (i + 1) * Q)] * 2)
+            self.L[:, i] = _ind
+            self.L[:, i + int(M // 2)] = np.roll(_ind, M)
+
+        k1, k2 = np.indices(self.L.shape)
+
+        self.W0 = np.exp(-1.0j * 2 * np.pi * (2 * k2 - k1) / (3 * M)) 
+        self.W1 = np.exp(-1.0j * 2 * np.pi * (2 * k1 - k2) / (3 * M))  
+        self.W2 = np.exp(-1.0j * 2 * np.pi * (k2 + k1) / (3 * M))
+
+        self.conj_W0 = np.conj(self.W0)
+        self.conj_W1 = np.conj(self.W1)
+        self.conj_W2 = np.conj(self.W2)
+        
 
     def _forward(self, x):
-        pass
+        assert x.shape[-2:] == self.shape
+        N = self.shape[0]
 
+        squeeze = x.ndim == 2
+        if squeeze:
+            x = np.expand_dims(x, 0)
+
+        px = hex_to_pgram(x)
+
+        assert 3 * px.shape[1] == px.shape[2], "must have dimensions Nx3N"
+        M = px.shape[1]
+        Q = int(3 * M / 2)
+        assert M % 2 == 0, "must be a multiple of 2"
+        assert M == N // 2
+
+        F = np.transpose(_hexdft_pgram_stack(px[:, ::2, ::2]), axes=(0, 2, 1))
+        G = np.transpose(_hexdft_pgram_stack(px[:, ::2, 1::2]), axes=(0, 2, 1))
+        H = np.transpose(_hexdft_pgram_stack(px[:, 1::2, ::2]), axes=(0, 2, 1))
+        I = np.transpose(_hexdft_pgram_stack(px[:, 1::2, 1::2]), axes=(0, 2, 1))
+
+        PX = HexArray(np.zeros_like(np.transpose(px, axes=(0, 2, 1)), self.dtype), pattern=x.pattern)
+
+        for i in range(int(3 * M**2 / 4)):
+            k1s, k2s = np.where(self.L == i)
+            if i % Q in np.arange(int(M // 2)):
+                k1, k2 = k1s[0], k2s[0]
+                # sanity check
+                assert k1s[1] == k1 + M
+                assert k1s[2] == k1 + 3 * M / 2
+                assert k1s[3] == k1 + 5 * M / 2
+
+                FF = F[:, k1, k2]
+                GG = self.W0[k1, k2] * G[:, k1, k2]
+                HH = self.W1[k1, k2] * H[:, k1, k2]
+                II = self.W2[k1, k2] * I[:, k1, k2]
+                PX[:, k1s[0], k2s[0]] = FF + GG + HH + II
+                PX[:, k1s[1], k2s[1]] = FF + GG - HH - II
+                PX[:, k1s[2], k2s[2]] = FF - GG + HH - II
+                PX[:, k1s[3], k2s[3]] = FF - GG - HH + II
+
+            else:
+                k1, k2 = k1s[1], k2s[1]
+                # sanity check
+                assert k1s[2] == (k1 + M)
+                assert k1s[3] == (k1 + 3 * M / 2)
+                assert k1s[0] == (k1 + 5 * M / 2) % Q
+
+                FF = F[:, k1, k2]
+                GG = self.W0[k1, k2] * G[:, k1, k2]
+                HH = self.W1[k1, k2] * H[:, k1, k2]
+                II = self.W2[k1, k2] * I[:, k1, k2]
+                PX[:, k1s[1], k2s[1]] = FF + GG + HH + II
+                PX[:, k1s[2], k2s[2]] = FF + GG - HH - II
+                PX[:, k1s[3], k2s[3]] = FF - GG + HH - II
+                PX[:, k1s[0], k2s[0]] = FF - GG - HH + II
+
+        X = pgram_to_hex(np.transpose(PX, (0, 2, 1)), N, x.pattern)
+
+        if squeeze:
+            X = np.squeeze(X)
+        
+        return X
+    
     def _inverse(self, X):
-        pass
+
+        assert X.shape[-2:] == self.shape
+        N = self.shape[0]
+
+        squeeze = X.ndim == 2
+        if squeeze:
+            X = np.expand_dims(X, 0)
+
+        PX = hex_to_pgram(X)
+        assert 3 * PX.shape[1] == PX.shape[2], "must have dimensions Nx3N"
+        M = PX.shape[1]
+        Q = int(3 * M / 2)
+        assert M % 2 == 0, "must be a multiple of 2"
+        assert M == N // 2
+
+        F = np.transpose(_hexidft_pgram_stack(PX[:, ::2, ::2]), axes=(0, 2, 1))
+        G = np.transpose(_hexidft_pgram_stack(PX[:, ::2, 1::2]), axes=(0, 2, 1))
+        H = np.transpose(_hexidft_pgram_stack(PX[:, 1::2, ::2]), axes=(0, 2, 1))
+        I = np.transpose(_hexidft_pgram_stack(PX[:, 1::2, 1::2]), axes=(0, 2, 1))
+
+        px = HexArray(np.zeros_like(np.transpose(PX, axes=(0, 2, 1)), self.dtype), pattern="oblique")
+
+        for i in range(int(3 * M**2 / 4)):
+            k1s, k2s = np.where(self.L == i)
+            if i % Q in np.arange(int(M // 2)):
+                k1, k2 = k1s[0], k2s[0]
+                # sanity check
+                assert k1s[1] == k1 + M
+                assert k1s[2] == k1 + 3 * M / 2
+                assert k1s[3] == k1 + 5 * M / 2
+
+                FF = F[:, k1, k2]
+                GG = self.conj_W0[k1, k2] * G[:, k1, k2]
+                HH = self.conj_W1[k1, k2] * H[:, k1, k2]
+                II = self.conj_W2[k1, k2] * I[:, k1, k2]
+                px[:, k1s[0], k2s[0]] = FF + GG + HH + II
+                px[:, k1s[1], k2s[1]] = FF + GG - HH - II
+                px[:, k1s[2], k2s[2]] = FF - GG + HH - II
+                px[:, k1s[3], k2s[3]] = FF - GG - HH + II
+
+            else:
+                k1, k2 = k1s[1], k2s[1]
+                # sanity check
+                assert k1s[2] == (k1 + M)
+                assert k1s[3] == (k1 + 3 * M / 2)
+                assert k1s[0] == (k1 + 5 * M / 2) % Q
+
+                FF = F[:, k1, k2]
+                GG = self.conj_W0[k1, k2] * G[:, k1, k2]
+                HH = self.conj_W1[k1, k2] * H[:, k1, k2]
+                II = self.conj_W2[k1, k2] * I[:, k1, k2]
+                px[:, k1s[1], k2s[1]] = FF + GG + HH + II
+                px[:, k1s[2], k2s[2]] = FF + GG - HH - II
+                px[:, k1s[3], k2s[3]] = FF - GG + HH - II
+                px[:, k1s[0], k2s[0]] = FF - GG - HH + II
+
+        x = pgram_to_hex(np.transpose(px, (0, 2, 1)), N, X.pattern) / 4.
+    
+        if squeeze:
+            x = np.squeeze(x)
+            
+        return x
 
 
 class RectPeriodicFFT(HexagonalFFT):
@@ -173,6 +315,11 @@ def mersereau_fft(px):
         L[:, i] = _ind
         L[:, i + int(M // 2)] = np.roll(_ind, M)
 
+    k1, k2 = np.indices(L.shape)
+    W0 = np.exp(-1.0j * 2 * np.pi * (2 * k2 - k1) / (3 * M)) 
+    W1 = np.exp(-1.0j * 2 * np.pi * (2 * k1 - k2) / (3 * M))  
+    W2 = np.exp(-1.0j * 2 * np.pi * (k2 + k1) / (3 * M))
+
     for i in range(int(3 * M**2 / 4)):
         # these 4 indices are
         # k1, k2
@@ -189,9 +336,9 @@ def mersereau_fft(px):
             assert k1s[3] == k1 + 5 * M / 2
 
             FF = F[k1, k2]
-            GG = W0(k1, k2, M) * G[k1, k2]
-            HH = W1(k1, k2, M) * H[k1, k2]
-            II = W2(k1, k2, M) * I[k1, k2]
+            GG = W0[k1, k2] * G[k1, k2]
+            HH = W1[k1, k2] * H[k1, k2]
+            II = W2[k1, k2] * I[k1, k2]
             PX[k1s[0], k2s[0]] = FF + GG + HH + II
             PX[k1s[1], k2s[1]] = FF + GG - HH - II
             PX[k1s[2], k2s[2]] = FF - GG + HH - II
@@ -205,9 +352,9 @@ def mersereau_fft(px):
             assert k1s[0] == (k1 + 5 * M / 2) % Q
 
             FF = F[k1, k2]
-            GG = W0(k1, k2, M) * G[k1, k2]
-            HH = W1(k1, k2, M) * H[k1, k2]
-            II = W2(k1, k2, M) * I[k1, k2]
+            GG = W0[k1, k2] * G[k1, k2]
+            HH = W1[k1, k2] * H[k1, k2]
+            II = W2[k1, k2] * I[k1, k2]
             PX[k1s[1], k2s[1]] = FF + GG + HH + II
             PX[k1s[2], k2s[2]] = FF + GG - HH - II
             PX[k1s[3], k2s[3]] = FF - GG + HH - II
@@ -234,12 +381,17 @@ def mersereau_ifft(PX):
 
     # compute the sets of 4 indices which re-use the
     # precomputed arrays above (eqns 49-52)
-    L = np.zeros((3 * M, M), int)
+    L = np.zeros((3*M, M), int)
     Q = int(3 * M / 2)
     for i in range(int(M / 2)):
         _ind = np.concatenate([np.arange(i * Q, (i + 1) * Q)] * 2)
         L[:, i] = _ind
         L[:, i + int(M // 2)] = np.roll(_ind, M)
+
+    k1, k2 = np.indices(L.shape)
+    W0 = np.exp(-1.0j * 2 * np.pi * (2 * k2 - k1) / (3 * M)) 
+    W1 = np.exp(-1.0j * 2 * np.pi * (2 * k1 - k2) / (3 * M))  
+    W2 = np.exp(-1.0j * 2 * np.pi * (k2 + k1) / (3 * M))
 
     for i in range(int(3 * M**2 / 4)):
         # these 4 indices are
@@ -257,9 +409,9 @@ def mersereau_ifft(PX):
             assert k1s[3] == k1 + 5 * M / 2
 
             FF = F[k1, k2]
-            GG = np.conj(W0(k1, k2, M)) * G[k1, k2]
-            HH = np.conj(W1(k1, k2, M)) * H[k1, k2]
-            II = np.conj(W2(k1, k2, M)) * I[k1, k2]
+            GG = np.conj(W0[k1, k2]) * G[k1, k2]
+            HH = np.conj(W1[k1, k2]) * H[k1, k2]
+            II = np.conj(W2[k1, k2]) * I[k1, k2]
             px[k1s[0], k2s[0]] = FF + GG + HH + II
             px[k1s[1], k2s[1]] = FF + GG - HH - II
             px[k1s[2], k2s[2]] = FF - GG + HH - II
@@ -273,9 +425,9 @@ def mersereau_ifft(PX):
             assert k1s[0] == (k1 + 5 * M / 2) % Q
 
             FF = F[k1, k2]
-            GG = np.conj(W0(k1, k2, M)) * G[k1, k2]
-            HH = np.conj(W1(k1, k2, M)) * H[k1, k2]
-            II = np.conj(W2(k1, k2, M)) * I[k1, k2]
+            GG = np.conj(W0[k1, k2]) * G[k1, k2]
+            HH = np.conj(W1[k1, k2]) * H[k1, k2]
+            II = np.conj(W2[k1, k2]) * I[k1, k2]
             px[k1s[1], k2s[1]] = FF + GG + HH + II
             px[k1s[2], k2s[2]] = FF + GG - HH - II
             px[k1s[3], k2s[3]] = FF - GG + HH - II
@@ -287,7 +439,7 @@ def mersereau_ifft(PX):
 def fftshift(X):
     N = X.shape[0]
     n1, n2 = X.indices
-    m = mersereau_region(N, X.pattern).astype(bool)
+    m = hsupport(N, X.pattern).astype(bool)
     shifted = HexArray(np.zeros_like(X), X.pattern)
     if X.pattern == "oblique":
         regI = (n1 < N // 2) & (n2 < N // 2)
@@ -323,7 +475,7 @@ def fftshift(X):
 def ifftshift(X):
     N = X.shape[0]
     n1, n2 = X.indices
-    m = mersereau_region(N, X.pattern).astype(bool)
+    m = hsupport(N, X.pattern).astype(bool)
     shifted = HexArray(np.zeros_like(X), X.pattern)
 
     if X.pattern == "oblique":
@@ -357,71 +509,6 @@ def ifftshift(X):
     return shifted
 
 
-# twiddle factors
-def W0(k1, k2, M):
-    return np.exp(-1.0j * 2 * np.pi * (2 * k2 - k1) / (3 * M))
-
-
-def W1(k1, k2, M):
-    return np.exp(-1.0j * 2 * np.pi * (2 * k1 - k2) / (3 * M))
-
-
-def W2(k1, k2, M):
-    return np.exp(-1.0j * 2 * np.pi * (k2 + k1) / (3 * M))
-
-
-def hexdft(x):
-    """"""
-    return _hexdft_slow(x)
-
-
-def hexidft(X):
-    """"""
-    return _hexidft_slow(X)
-
-
-def _hexdft_slow(x):
-    """
-    Based on eqn (39) in Mersereau
-    """
-    assert x.shape[0] == x.shape[1], "must be square array"
-    dtype = x.dtype
-    cdtype = np.complex64 if dtype == np.float32 else np.complex128
-
-    N = x.shape[0]
-    n1, n2 = np.meshgrid(np.arange(N), np.arange(N))
-    kern = _hexagonal_kernel(n1, n2, cdtype)
-
-    support = mersereau_region(N)
-
-    X = HexArray(np.zeros(x.shape, cdtype))
-    for w1 in range(N):
-        for w2 in range(N):
-            X[w1, w2] = np.sum(kern[w1, w2, :, :] * x * support)
-
-    return X
-
-
-def _hexidft_slow(X):
-    assert X.shape[0] == X.shape[1], "must be square array"
-    cdtype = X.dtype
-    dtype = np.float32 if cdtype == np.complex64 else np.float64
-
-    N = X.shape[0]
-    n1, n2 = np.meshgrid(np.arange(N), np.arange(N))
-
-    kern = np.conj(_hexagonal_kernel(n1, n2, cdtype))
-
-    support = mersereau_region(N)
-
-    x = HexArray(np.zeros(X.shape, cdtype))
-    for x1 in range(N):
-        for x2 in range(N):
-            x[x1, x2] = np.sum(kern[:, :, x1, x2] * X * support)
-
-    return x * (1 / np.sum(support)) * support
-
-
 def _hexdft_pgram(px):
     """"""
     dtype = px.dtype
@@ -436,6 +523,23 @@ def _hexdft_pgram(px):
     for w1 in range(P):
         for w2 in range(3 * P):
             X[w1, w2] = np.sum(kern[w1, w2, :, :] * px)
+
+    return X
+
+def _hexdft_pgram_stack(px):
+    """"""
+    dtype = px.dtype
+    cdtype = np.complex64 if dtype == np.float32 else np.complex128
+
+    nstack, P, _ = px.shape
+    p1, p2 = np.meshgrid(np.arange(3 * P), np.arange(P))
+
+    kern = _pgram_kernel(p1, p2, cdtype)
+
+    X = np.zeros(px.shape, cdtype)
+    for w1 in range(P):
+        for w2 in range(3 * P):
+            X[:, w1, w2] = np.sum(kern[w1, w2, :, :][None, :, :] * px, axis=(1,2))
 
     return X
 
@@ -456,24 +560,21 @@ def _hexidft_pgram(X):
 
     return px * 1 / (3 * P**2)
 
+def _hexidft_pgram_stack(X):
+    """"""
+    cdtype = X.dtype
+    dtype = np.float32 if cdtype == np.complex64 else np.float64
 
-def _hexagonal_kernel(n1, n2, cdtype):
-    N = n1.shape[0]
-    kernel = np.zeros((N,) * 4, cdtype)
-    # frequency indices
-    w1s = np.arange(N)
-    w2s = np.arange(N)
-    for w1 in w1s:
-        for w2 in w2s:
-            kernel[w1, w2, :, :] = np.exp(
-                -1.0j
-                * np.pi
-                * (
-                    (1 / (3 * (N // 2))) * (2 * n1 - n2) * (2 * w1 - w2)
-                    + (1 / (N // 2)) * n2 * w2
-                )
-            )
-    return kernel
+    nstack, P, _ = X.shape
+    p1, p2 = np.meshgrid(np.arange(3 * P), np.arange(P))
+    kern = np.conj(_pgram_kernel(p1, p2, cdtype))
+
+    px = np.zeros(X.shape, cdtype)
+    for x1 in range(P):
+        for x2 in range(3 * P):
+            px[:, x1, x2] = np.sum(kern[:, :, x1, x2][None, :, :] * X, axis=(1,2))
+
+    return px * 1 / (3 * P**2)
 
 
 def _pgram_kernel(p1, p2, cdtype):
@@ -490,23 +591,6 @@ def _pgram_kernel(p1, p2, cdtype):
                 * ((1 / (3 * P)) * (2 * p1 - p2) * (2 * w1 - w2) + (1 / P) * p2 * w2)
             )
 
-    return kernel
-
-
-def rect_kernel(n1, n2, cdtype):
-    N1, N2 = n1.shape
-    kernel = np.zeros((N1, N2, N1, N2), cdtype)
-    # frequency indices
-    w1s = np.arange(N1)
-    w2s = np.arange(N2)
-    for w1 in w1s:
-        for w2 in w2s:
-            kernel[w1, w2, :, :] = np.exp(
-                -1.0j
-                * 2
-                * np.pi
-                * ((1 / (N1)) * w1 * (n1 - n2 / 2) + (1 / (N2)) * (n2) * (w2))
-            )
     return kernel
 
 
@@ -532,32 +616,3 @@ def rect_ifft(X):
     x = HexArray(np.fft.ifft(F1, axis=0))
 
     return x
-
-
-def _rect_dft_slow(x):
-    dtype = x.dtype
-    cdtype = np.complex64 if dtype == np.float32 else np.complex128
-
-    N1, N2 = x.shape
-    n1, n2 = np.meshgrid(np.arange(N1), np.arange(N2), indexing="ij")
-    kern = rect_kernel(n1, n2, cdtype)
-    X = HexArray(np.zeros(x.shape, cdtype), "oblique")
-    for w1 in range(N1):
-        for w2 in range(N2):
-            X[w1, w2] = np.sum(kern[w1, w2, :, :] * x)
-
-    return X
-
-
-def _rect_idft_slow(X):
-    cdtype = X.dtype
-
-    N1, N2 = X.shape
-    n1, n2 = np.meshgrid(np.arange(N1), np.arange(N2), indexing="ij")
-    kern = np.conj(rect_kernel(n1, n2, cdtype))
-    x = HexArray(np.zeros(X.shape, cdtype), "oblique")
-    for x1 in range(N1):
-        for x2 in range(N2):
-            x[x1, x2] = np.sum(kern[:, :, x1, x2] * X)
-
-    return x * 1 / (N1 * N2)

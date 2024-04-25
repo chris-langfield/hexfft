@@ -3,7 +3,7 @@ from hexfft.array import HexArray, _generate_indices
 from hexfft.grids import heshgrid, skew_heshgrid
 
 
-def mersereau_region(N, pattern="oblique"):
+def hsupport(N, pattern="oblique"):
     """
     Return a boolean mask of the hexagonally periodic
     region inscribed in the square or parallelopiped region
@@ -44,7 +44,7 @@ def hex_to_pgram(h):
     # compute grid indices for hexagon in oblique coords
     N = h.shape[-1]
     n1, n2 = np.meshgrid(np.arange(N), np.arange(N))
-    support = mersereau_region(N, h.pattern)
+    support = hsupport(N, h.pattern)
     # compute grid indices for parallelogram
     P = N // 2
     p1, p2 = np.meshgrid(np.arange(3 * P), np.arange(P))
@@ -76,12 +76,15 @@ def pgram_to_hex(p, N, pattern="oblique"):
     """
     N is required because there is ambiguity since P=N//2 - 1
     """
-    P = p.shape[0]
+    if p.ndim == 3:
+        nstack, P, P3 = p.shape
+    else:
+        P, P3 = p.shape
     assert P == N // 2
+    assert P3 == 3*P
 
     # compute grid indices for hexagon
-    h = HexArray(np.zeros((N, N), p.dtype), pattern=pattern)
-    support = mersereau_region(N, pattern)
+    support = hsupport(N, pattern)
     n1, n2 = np.meshgrid(np.arange(N), np.arange(N))
 
     # compute grid indices for parallelogram
@@ -96,8 +99,14 @@ def pgram_to_hex(p, N, pattern="oblique"):
     pgram_left = p2 > p1 - P
     pgram_right = p2 <= p1 - P
 
-    h[support_below] = p[pgram_left]
-    h[support_above] = p[pgram_right]
+    if p.ndim == 3:
+        h = HexArray(np.zeros((nstack, N, N), p.dtype), pattern)
+        h[:, support_below] = p[:, pgram_left]
+        h[:, support_above] = p[:, pgram_right]
+    else:
+        h = HexArray(np.zeros((N, N), p.dtype), pattern)
+        h[support_below] = p[pgram_left]
+        h[support_above] = p[pgram_right]
 
     return HexArray(h, pattern=pattern)
 
@@ -120,12 +129,12 @@ def pad(x):
     return grid
 
 
-def nice_test_function(shape, mersereau=True, pattern="oblique"):
+def nice_test_function(shape, hcrop=True, pattern="oblique"):
     h = HexArray(np.zeros(shape), pattern=pattern)
     N1, N2 = shape
     n1, n2 = np.meshgrid(np.arange(N1), np.arange(N2), indexing="ij")
-    if mersereau:
-        m = mersereau_region(N1, pattern)
+    if hcrop:
+        m = hsupport(N1, pattern)
     else:
         m = 1.0
     h[:, :] = (np.cos(n1) + 2 * np.sin((n1 - n2) / 4)) * m
