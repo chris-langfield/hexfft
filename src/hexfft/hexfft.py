@@ -280,7 +280,7 @@ class RectPeriodicFFT(HexagonalFFT):
             X = np.expand_dims(X, 0)
         F2 = scipy.fft.ifft(X, axis=2)
         F1 = F2 * self.phase_shift_conj
-        x = HexArray(scipy.fft.ifft(F1, axis=1))
+        x = HexArray(scipy.fft.ifft(F1, axis=1), "oblique")
 
         if squeeze:
             x = np.squeeze(x)
@@ -643,12 +643,12 @@ def rect_fft(x):
     cdtype = complex_type(dtype)
 
     N1, N2 = x.shape
-    F1 = HexArray(scipy.fft.fft(x, axis=0))
+    F1 = HexArray(scipy.fft.fft(x, axis=0), "oblique")
     exp_factor = np.exp(
         1.0j * np.pi * np.array([i * np.arange(N2) for i in range(N1)]) / N1
     ).astype(cdtype)
     F2 = F1 * exp_factor
-    F = HexArray(np.fft.fft(F2, axis=1))
+    F = HexArray(np.fft.fft(F2, axis=1), "oblique")
 
     return F
 
@@ -663,6 +663,6 @@ def rect_ifft(X):
         -1.0j * np.pi * np.array([i * np.arange(N2) for i in range(N1)]) / N1
     ).astype(cdtype)
     F1 = F2 * exp_factor
-    x = HexArray(scipy.fft.ifft(F1, axis=0))
+    x = HexArray(scipy.fft.ifft(F1, axis=0), "oblique")
 
     return x

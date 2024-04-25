@@ -10,7 +10,7 @@ def test_hexarray():
     for arr in arrs:
         # make sure the indices are in oblique coordinates by default
         # this corresponds to a 3x3 parallopiped
-        hx = HexArray(arr)
+        hx = HexArray(arr, "oblique")
         n1, n2 = hx.indices
         t1, t2 = np.meshgrid(np.arange(3), np.arange(3))
         assert np.all(n1 == t1)
@@ -18,7 +18,7 @@ def test_hexarray():
 
         # make sure internal representation in oblique coords is correct
         # when given an array with offset coordinates
-        hx = HexArray(arr, pattern="offset")
+        hx = HexArray(arr, "offset")
         n1, n2 = hx.indices
         t1, t2 = np.meshgrid(np.arange(3), np.arange(3))
 
@@ -30,7 +30,7 @@ def test_hexarray():
 
         # test the pattern
         arr = np.ones((4, 5))
-        hx = HexArray(arr, pattern="offset")
+        hx = HexArray(arr, "offset")
         n1, n2 = hx.indices
         col_indices = np.array([[i, i + 1, i + 1, i + 2] for i in range(5)])
         assert np.all(n2 == col_indices)
@@ -40,8 +40,8 @@ def test_hex_pgram_conversions():
     # all in oblique coordinates
     nstack = 10
     for N in [5, 8, 16, 21]:
-        pgram = HexArray(np.random.normal(size=(N // 2, 3 * (N // 2))))
-        pgrams = HexArray(np.stack([pgram * (i + 1) for i in range(nstack)]))
+        pgram = HexArray(np.random.normal(size=(N // 2, 3 * (N // 2))), "oblique")
+        pgrams = HexArray(np.stack([pgram * (i + 1) for i in range(nstack)]), "oblique")
 
         hex = pgram_to_hex(pgram, N)
         hexs = pgram_to_hex(pgrams, N)

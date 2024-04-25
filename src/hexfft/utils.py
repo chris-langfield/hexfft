@@ -69,7 +69,7 @@ def hex_to_pgram(h):
         p[pgram_left] = h[support_below]
         p[pgram_right] = h[support_above]
 
-    return HexArray(p, pattern=h.pattern)
+    return HexArray(p, h.pattern)
 
 
 def pgram_to_hex(p, N, pattern="oblique"):
@@ -108,29 +108,11 @@ def pgram_to_hex(p, N, pattern="oblique"):
         h[support_below] = p[pgram_left]
         h[support_above] = p[pgram_right]
 
-    return HexArray(h, pattern=pattern)
-
-
-def pad(x):
-    """
-    Given an NxN array x, find the enclosing Mersereau
-    hexagonal region and sampling grid.
-    """
-    assert x.shape[0] == x.shape[1]
-
-    # Create a Mersereau hexagonal region of size N
-    P = x.shape[0]  # i.e. = N
-    # Parallelogram (square in oblique coordinates) enclosing
-    M = 2 * (P + 1)
-    m1, m2 = np.meshgrid(np.arange(M), np.arange(M))
-    grid = np.zeros((M, M), x.dtype)
-    grid[int(P // 2) : P + int(P // 2), int(P // 2) : P + int(P // 2)] = x
-
-    return grid
+    return HexArray(h, pattern)
 
 
 def nice_test_function(shape, hcrop=True, pattern="oblique"):
-    h = HexArray(np.zeros(shape), pattern=pattern)
+    h = HexArray(np.zeros(shape), pattern)
     N1, N2 = shape
     n1, n2 = np.meshgrid(np.arange(N1), np.arange(N2), indexing="ij")
     if hcrop:

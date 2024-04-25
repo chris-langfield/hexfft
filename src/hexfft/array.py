@@ -40,7 +40,7 @@ class HexArray(np.ndarray):
 
     """
 
-    def __new__(cls, arr, pattern="oblique"):
+    def __new__(cls, arr, pattern="offset"):
         # np.ndarray subclass boilerplate
         obj = np.asarray(arr).view(cls)
 

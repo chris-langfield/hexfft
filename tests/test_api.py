@@ -105,13 +105,13 @@ def test_hex_fft_output(pattern):
     assert X.shape == array.shape
     assert X.dtype == np.complex128
 
-    X = fft(HexArray(array.astype(np.float32)), "hex")
+    X = fft(HexArray(array.astype(np.float32), pattern), "hex")
     assert X.dtype == np.complex64
 
-    X = fft(HexArray(array.astype(np.complex64)), "hex")
+    X = fft(HexArray(array.astype(np.complex64), pattern), "hex")
     assert X.dtype == np.complex64
 
-    X = fft(HexArray(array.astype(np.complex128)), "hex")
+    X = fft(HexArray(array.astype(np.complex128), pattern), "hex")
     assert X.dtype == np.complex128
 
 

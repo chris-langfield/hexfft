@@ -94,9 +94,9 @@ def test_pgram_hexdft():
         else:
             center = (N / 2 - 1, N / 2 - 1)
         impulse = HexArray(
-            np.stack([hregion(n1, n2, center, i + 1) for i in range(nstack)])
+            np.stack([hregion(n1, n2, center, i + 1) for i in range(nstack)]), "oblique"
         )
-        impulse_single = HexArray(hregion(n1, n2, center, 1))
+        impulse_single = HexArray(hregion(n1, n2, center, 1), "oblique")
 
         impulse_p = hex_to_pgram(impulse)
         impulse_single_p = hex_to_pgram(impulse_single)
@@ -254,7 +254,7 @@ def test_mersereau_fft():
 def test_fftshift():
     for size in [8, 16, 32]:
         x = nice_test_function((size, size))
-        h_oblique = HexArray(x) * hsupport(size)
+        h_oblique = HexArray(x, "oblique") * hsupport(size)
         h_offset = HexArray(x, "offset") * hsupport(size, "offset")
         shifted_oblique = fftshift(h_oblique)
         shifted_offset = fftshift(h_offset)
