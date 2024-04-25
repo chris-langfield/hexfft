@@ -2,6 +2,7 @@ import numpy as np
 from hexfft import HexArray
 from hexfft.utils import hsupport
 
+
 def _rect_kernel(n1, n2, cdtype):
     N1, N2 = n1.shape
     kernel = np.zeros((N1, N2, N1, N2), cdtype)
@@ -65,6 +66,7 @@ def _rect_idft_slow(X):
             x[x1, x2] = np.sum(kern[:, :, x1, x2] * X)
 
     return x * 1 / (N1 * N2)
+
 
 def _hexdft_slow(x):
     """

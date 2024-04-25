@@ -3,6 +3,7 @@ from hexfft import HexArray
 from hexfft.array import rect_shift, rect_unshift
 from hexfft.utils import pgram_to_hex, hex_to_pgram
 
+
 def test_hexarray():
     # test stack and single image
     arrs = [np.ones((3, 3)), np.ones((10, 3, 3))]
@@ -39,8 +40,8 @@ def test_hex_pgram_conversions():
     # all in oblique coordinates
     nstack = 10
     for N in [5, 8, 16, 21]:
-        pgram = HexArray(np.random.normal(size=(N//2, 3*(N//2))))
-        pgrams = HexArray(np.stack([pgram * (i+1) for i in range(nstack)]))
+        pgram = HexArray(np.random.normal(size=(N // 2, 3 * (N // 2))))
+        pgrams = HexArray(np.stack([pgram * (i + 1) for i in range(nstack)]))
 
         hex = pgram_to_hex(pgram, N)
         hexs = pgram_to_hex(pgrams, N)

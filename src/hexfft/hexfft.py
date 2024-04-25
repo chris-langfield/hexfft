@@ -26,7 +26,10 @@ class HexagonalFFT:
     def __init__(self, shape, dtype):
 
         assert len(shape) == 2, "Only 2D transforms are supported."
-        assert dtype in [np.complex128, np.complex64], "dtype of transform must be complex"
+        assert dtype in [
+            np.complex128,
+            np.complex64,
+        ], "dtype of transform must be complex"
 
         self.shape = shape
         self.dtype = dtype
@@ -48,11 +51,15 @@ class HexPeriodicFFT(HexagonalFFT):
 
     def __init__(self, shape, dtype):
 
-        assert shape[0] == shape[1], "Input to FFT with hex periodicity must be a square array"
-        assert shape[0] % 4 == 0, "Array size for periodicity='hex' must be a multiple of 4."
+        assert (
+            shape[0] == shape[1]
+        ), "Input to FFT with hex periodicity must be a square array"
+        assert (
+            shape[0] % 4 == 0
+        ), "Array size for periodicity='hex' must be a multiple of 4."
 
         super().__init__(shape, dtype)
-        
+
     def _precompute(self):
         N = self.shape[0]
         M = N // 2
@@ -67,18 +74,23 @@ class HexPeriodicFFT(HexagonalFFT):
 
         k1, k2 = np.indices(self.L.shape)
 
-        self.W0 = np.exp(-1.0j * 2 * np.pi * (2 * k2 - k1) / (3 * M)).astype(self.cdtype)
-        self.W1 = np.exp(-1.0j * 2 * np.pi * (2 * k1 - k2) / (3 * M)).astype(self.cdtype)
+        self.W0 = np.exp(-1.0j * 2 * np.pi * (2 * k2 - k1) / (3 * M)).astype(
+            self.cdtype
+        )
+        self.W1 = np.exp(-1.0j * 2 * np.pi * (2 * k1 - k2) / (3 * M)).astype(
+            self.cdtype
+        )
         self.W2 = np.exp(-1.0j * 2 * np.pi * (k2 + k1) / (3 * M)).astype(self.cdtype)
 
         self.conj_W0 = np.conj(self.W0)
         self.conj_W1 = np.conj(self.W1)
         self.conj_W2 = np.conj(self.W2)
-        
 
     def _forward(self, x):
-        
-        assert x.shape[-2:] == self.shape, f"Input array with shape {x.shape} does not match FFT object shape {self.shape}"
+
+        assert (
+            x.shape[-2:] == self.shape
+        ), f"Input array with shape {x.shape} does not match FFT object shape {self.shape}"
 
         N = self.shape[0]
 
@@ -99,7 +111,10 @@ class HexPeriodicFFT(HexagonalFFT):
         H = np.transpose(_hexdft_pgram_stack(px[:, 1::2, ::2]), axes=(0, 2, 1))
         I = np.transpose(_hexdft_pgram_stack(px[:, 1::2, 1::2]), axes=(0, 2, 1))
 
-        PX = HexArray(np.zeros_like(np.transpose(px, axes=(0, 2, 1)), self.dtype), pattern=x.pattern)
+        PX = HexArray(
+            np.zeros_like(np.transpose(px, axes=(0, 2, 1)), self.dtype),
+            pattern=x.pattern,
+        )
 
         for i in range(int(3 * M**2 / 4)):
             k1s, k2s = np.where(self.L == i)
@@ -139,15 +154,19 @@ class HexPeriodicFFT(HexagonalFFT):
 
         if squeeze:
             X = np.squeeze(X)
-        
+
         return X
-    
+
     def _inverse(self, X):
-        assert X.shape[-1] == X.shape[-2], "Input to FFT with hex periodicity must be a square array"
+        assert (
+            X.shape[-1] == X.shape[-2]
+        ), "Input to FFT with hex periodicity must be a square array"
         N = X.shape[-1]
         assert N % 4 == 0, "Array size for periodicity='hex' must be a multiple of 4."
 
-        assert X.shape[-2:] == self.shape, f"Input array with shape {X.shape} does not match FFT object shape {self.shape}"
+        assert (
+            X.shape[-2:] == self.shape
+        ), f"Input array with shape {X.shape} does not match FFT object shape {self.shape}"
 
         squeeze = X.ndim == 2
         if squeeze:
@@ -165,7 +184,10 @@ class HexPeriodicFFT(HexagonalFFT):
         H = np.transpose(_hexidft_pgram_stack(PX[:, 1::2, ::2]), axes=(0, 2, 1))
         I = np.transpose(_hexidft_pgram_stack(PX[:, 1::2, 1::2]), axes=(0, 2, 1))
 
-        px = HexArray(np.zeros_like(np.transpose(PX, axes=(0, 2, 1)), self.dtype), pattern="oblique")
+        px = HexArray(
+            np.zeros_like(np.transpose(PX, axes=(0, 2, 1)), self.dtype),
+            pattern="oblique",
+        )
 
         for i in range(int(3 * M**2 / 4)):
             k1s, k2s = np.where(self.L == i)
@@ -201,12 +223,13 @@ class HexPeriodicFFT(HexagonalFFT):
                 px[:, k1s[3], k2s[3]] = FF - GG + HH - II
                 px[:, k1s[0], k2s[0]] = FF - GG - HH + II
 
-        x = pgram_to_hex(np.transpose(px, (0, 2, 1)), N, X.pattern) / 4.
-    
+        x = pgram_to_hex(np.transpose(px, (0, 2, 1)), N, X.pattern) / 4.0
+
         if squeeze:
             x = np.squeeze(x)
-            
+
         return x
+
 
 class RectPeriodicFFT(HexagonalFFT):
     def __init__(self, shape, dtype):
@@ -286,13 +309,15 @@ def fft(x, periodicity="rect"):
 
         X = rect_fft(rect_shift(x))
         return rect_unshift(X)
-    
+
     raise ValueError(f"Unrecognized periodicity option: {periodicity}")
 
 
 def ifft(X, periodicity="rect"):
     if periodicity == "hex":
-        assert X.shape[0] == X.shape[1], "Input to ifft(-, 'hex') must be a square array"
+        assert (
+            X.shape[0] == X.shape[1]
+        ), "Input to ifft(-, 'hex') must be a square array"
         N = X.shape[0]
         assert N % 4 == 0, "Array size for periodicity='hex' must be a multiple of 4."
 
@@ -303,7 +328,7 @@ def ifft(X, periodicity="rect"):
     elif periodicity == "rect":
         x = rect_ifft(rect_shift(X))
         return rect_unshift(x)
-    
+
     raise ValueError(f"Unrecognized periodicity option: {periodicity}")
 
 
@@ -398,7 +423,7 @@ def mersereau_ifft(PX):
 
     # compute the sets of 4 indices which re-use the
     # precomputed arrays above (eqns 49-52)
-    L = np.zeros((3*M, M), int)
+    L = np.zeros((3 * M, M), int)
     Q = int(3 * M / 2)
     for i in range(int(M / 2)):
         _ind = np.concatenate([np.arange(i * Q, (i + 1) * Q)] * 2)
@@ -407,7 +432,7 @@ def mersereau_ifft(PX):
 
     k1, k2 = np.indices(L.shape)
     W0 = np.exp(-1.0j * 2 * np.pi * (2 * k2 - k1) / (3 * M)).astype(cdtype)
-    W1 = np.exp(-1.0j * 2 * np.pi * (2 * k1 - k2) / (3 * M)).astype(cdtype)  
+    W1 = np.exp(-1.0j * 2 * np.pi * (2 * k1 - k2) / (3 * M)).astype(cdtype)
     W2 = np.exp(-1.0j * 2 * np.pi * (k2 + k1) / (3 * M)).astype(cdtype)
 
     for i in range(int(3 * M**2 / 4)):
@@ -543,6 +568,7 @@ def _hexdft_pgram(px):
 
     return X
 
+
 def _hexdft_pgram_stack(px):
     """"""
     dtype = px.dtype
@@ -556,7 +582,7 @@ def _hexdft_pgram_stack(px):
     X = np.zeros(px.shape, cdtype)
     for w1 in range(P):
         for w2 in range(3 * P):
-            X[:, w1, w2] = np.sum(kern[w1, w2, :, :][None, :, :] * px, axis=(1,2))
+            X[:, w1, w2] = np.sum(kern[w1, w2, :, :][None, :, :] * px, axis=(1, 2))
 
     return X
 
@@ -577,6 +603,7 @@ def _hexidft_pgram(X):
 
     return px * 1 / (3 * P**2)
 
+
 def _hexidft_pgram_stack(X):
     """"""
     dtype = X.dtype
@@ -589,7 +616,7 @@ def _hexidft_pgram_stack(X):
     px = np.zeros(X.shape, cdtype)
     for x1 in range(P):
         for x2 in range(3 * P):
-            px[:, x1, x2] = np.sum(kern[:, :, x1, x2][None, :, :] * X, axis=(1,2))
+            px[:, x1, x2] = np.sum(kern[:, :, x1, x2][None, :, :] * X, axis=(1, 2))
 
     return px * 1 / (3 * P**2)
 

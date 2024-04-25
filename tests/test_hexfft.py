@@ -10,7 +10,7 @@ from hexfft.hexfft import (
     rect_ifft,
     FFT,
     fft,
-    ifft
+    ifft,
 )
 from hexfft.utils import (
     hsupport,
@@ -19,7 +19,12 @@ from hexfft.utils import (
     hex_to_pgram,
 )
 from hexfft.array import rect_shift, rect_unshift
-from hexfft.reference import _hexdft_slow, _hexidft_slow, _rect_dft_slow, _rect_idft_slow
+from hexfft.reference import (
+    _hexdft_slow,
+    _hexidft_slow,
+    _rect_dft_slow,
+    _rect_idft_slow,
+)
 import numpy as np
 
 
@@ -88,7 +93,9 @@ def test_pgram_hexdft():
             center = (N // 2, N // 2)
         else:
             center = (N / 2 - 1, N / 2 - 1)
-        impulse = HexArray(np.stack([hregion(n1, n2, center, i + 1) for i in range(nstack)]))
+        impulse = HexArray(
+            np.stack([hregion(n1, n2, center, i + 1) for i in range(nstack)])
+        )
         impulse_single = HexArray(hregion(n1, n2, center, 1))
 
         impulse_p = hex_to_pgram(impulse)
@@ -176,6 +183,7 @@ def test_rect_fft_stack():
     dds_single = rect_unshift(rect_ifft(rect_shift(DS_SINGLE)))
     assert np.allclose(dds_stack, dds_single)
 
+
 def test_hex_fft_stack():
     # create a stack of data
     for pattern in ["oblique", "offset"]:
@@ -189,17 +197,13 @@ def test_hex_fft_stack():
             fftobj = FFT((size, size), periodicity="hex")
 
             DATA_STACK = fftobj.forward(data)
-            DATA_LOOP = np.stack(
-                [fft(data[i], "hex") for i in range(nstack)]
-            )
+            DATA_LOOP = np.stack([fft(data[i], "hex") for i in range(nstack)])
             DATA_LOOP = HexArray(DATA_LOOP, pattern)
 
             assert np.allclose(DATA_STACK, DATA_LOOP)
 
             ddata_stack = fftobj.inverse(DATA_STACK)
-            ddata_loop = np.stack(
-                [ifft(DATA_LOOP[i], "hex") for i in range(nstack)]
-            )
+            ddata_loop = np.stack([ifft(DATA_LOOP[i], "hex") for i in range(nstack)])
             ddata_loop = HexArray(ddata_loop, pattern)
 
             assert np.allclose(ddata_stack, ddata_loop)

@@ -81,7 +81,7 @@ def pgram_to_hex(p, N, pattern="oblique"):
     else:
         P, P3 = p.shape
     assert P == N // 2
-    assert P3 == 3*P
+    assert P3 == 3 * P
 
     # compute grid indices for hexagon
     support = hsupport(N, pattern)
@@ -139,6 +139,7 @@ def nice_test_function(shape, hcrop=True, pattern="oblique"):
         m = 1.0
     h[:, :] = (np.cos(n1) + 2 * np.sin((n1 - n2) / 4)) * m
     return h
+
 
 def complex_type(type):
     if type in [np.float32, np.complex64]:

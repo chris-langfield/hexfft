@@ -46,10 +46,12 @@ class HexArray(np.ndarray):
 
         if arr.ndim not in [2, 3]:
             raise ValueError("HexArray can only be of dimension 2 or 3.")
-        
+
         if pattern not in ["oblique", "offset"]:
-            raise ValueError(f"Coordinate system {pattern} is not implemented or unknown.")
-        
+            raise ValueError(
+                f"Coordinate system {pattern} is not implemented or unknown."
+            )
+
         obj.pattern = pattern
         obj.indices = _generate_indices(arr.shape[-2:], pattern)
         obj.grid = _generate_grid(arr.shape[-2:], pattern)
@@ -115,7 +117,7 @@ def rect_unshift(hx):
         from hx shifted onto the parallelogram region of support.
     """
     assert hx.pattern == "oblique", "Array must be in 'oblique' coordinates."
-    
+
     N1, N2 = hx.shape[-2:]
     if N1 < 2 or N2 < 2:
         raise ValueError("Cannot shift offset array of size less than 2x2.")
