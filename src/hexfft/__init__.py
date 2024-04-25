@@ -1,2 +1,2 @@
-from .hexfft import fftshift, ifftshift, fft, ifft
+from .hexfft import fftshift, ifftshift, fft, ifft, FFT
 from .array import HexArray

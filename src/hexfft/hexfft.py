@@ -6,7 +6,8 @@ in Proceedings of the IEEE, vol. 67, no. 6, pp. 930-949, June 1979, doi: 10.1109
 """
 
 import numpy as np
-from hexfft.utils import hsupport, hex_to_pgram, pgram_to_hex
+import scipy
+from hexfft.utils import hsupport, hex_to_pgram, pgram_to_hex, complex_type
 from hexfft.array import HexArray, rect_shift, rect_unshift
 
 import logging
@@ -23,8 +24,14 @@ def FFT(shape, periodicity="rect", dtype=np.complex128):
 
 class HexagonalFFT:
     def __init__(self, shape, dtype):
+
+        assert len(shape) == 2, "Only 2D transforms are supported."
+        assert dtype in [np.complex128, np.complex64], "dtype of transform must be complex"
+
         self.shape = shape
         self.dtype = dtype
+        self.cdtype = complex_type(dtype)
+
         self.precompute()
 
     def precompute(self):
@@ -38,9 +45,14 @@ class HexagonalFFT:
 
 
 class HexPeriodicFFT(HexagonalFFT):
-    def __init__(self, shape, dtype):
-        super().__init__(shape, dtype)
 
+    def __init__(self, shape, dtype):
+
+        assert shape[0] == shape[1], "Input to FFT with hex periodicity must be a square array"
+        assert shape[0] % 4 == 0, "Array size for periodicity='hex' must be a multiple of 4."
+
+        super().__init__(shape, dtype)
+        
     def _precompute(self):
         N = self.shape[0]
         M = N // 2
@@ -55,9 +67,9 @@ class HexPeriodicFFT(HexagonalFFT):
 
         k1, k2 = np.indices(self.L.shape)
 
-        self.W0 = np.exp(-1.0j * 2 * np.pi * (2 * k2 - k1) / (3 * M)) 
-        self.W1 = np.exp(-1.0j * 2 * np.pi * (2 * k1 - k2) / (3 * M))  
-        self.W2 = np.exp(-1.0j * 2 * np.pi * (k2 + k1) / (3 * M))
+        self.W0 = np.exp(-1.0j * 2 * np.pi * (2 * k2 - k1) / (3 * M)).astype(self.cdtype)
+        self.W1 = np.exp(-1.0j * 2 * np.pi * (2 * k1 - k2) / (3 * M)).astype(self.cdtype)
+        self.W2 = np.exp(-1.0j * 2 * np.pi * (k2 + k1) / (3 * M)).astype(self.cdtype)
 
         self.conj_W0 = np.conj(self.W0)
         self.conj_W1 = np.conj(self.W1)
@@ -65,7 +77,9 @@ class HexPeriodicFFT(HexagonalFFT):
         
 
     def _forward(self, x):
-        assert x.shape[-2:] == self.shape
+        
+        assert x.shape[-2:] == self.shape, f"Input array with shape {x.shape} does not match FFT object shape {self.shape}"
+
         N = self.shape[0]
 
         squeeze = x.ndim == 2
@@ -129,9 +143,11 @@ class HexPeriodicFFT(HexagonalFFT):
         return X
     
     def _inverse(self, X):
+        assert X.shape[-1] == X.shape[-2], "Input to FFT with hex periodicity must be a square array"
+        N = X.shape[-1]
+        assert N % 4 == 0, "Array size for periodicity='hex' must be a multiple of 4."
 
-        assert X.shape[-2:] == self.shape
-        N = self.shape[0]
+        assert X.shape[-2:] == self.shape, f"Input array with shape {X.shape} does not match FFT object shape {self.shape}"
 
         squeeze = X.ndim == 2
         if squeeze:
@@ -192,7 +208,6 @@ class HexPeriodicFFT(HexagonalFFT):
             
         return x
 
-
 class RectPeriodicFFT(HexagonalFFT):
     def __init__(self, shape, dtype):
         super().__init__(shape, dtype)
@@ -206,10 +221,10 @@ class RectPeriodicFFT(HexagonalFFT):
 
     def _forward(self, x):
         assert x.shape[-2:] == self.shape
+
         if isinstance(x, HexArray) and x.pattern == "oblique":
-            _logger.warn(
-                "Passing HexArray with 'oblique' sampling pattern to "
-                "a rectangular periodic FFT."
+            raise ValueError(
+                "Input array to FFT with rectangular periodicity must be in 'offset' coordinates."
             )
         else:
             x = HexArray(x, "offset")
@@ -220,9 +235,9 @@ class RectPeriodicFFT(HexagonalFFT):
         if squeeze:
             x = np.expand_dims(x, 0)
 
-        F1 = np.fft.fft(x, axis=1)
+        F1 = scipy.fft.fft(x, axis=1)
         F2 = F1 * self.phase_shift
-        X = np.fft.fft(F2, axis=2)
+        X = scipy.fft.fft(F2, axis=2)
 
         if squeeze:
             X = np.squeeze(X)
@@ -240,9 +255,9 @@ class RectPeriodicFFT(HexagonalFFT):
         squeeze = X.ndim == 2
         if squeeze:
             X = np.expand_dims(X, 0)
-        F2 = np.fft.ifft(X, axis=2)
+        F2 = scipy.fft.ifft(X, axis=2)
         F1 = F2 * self.phase_shift_conj
-        x = HexArray(np.fft.ifft(F1, axis=1))
+        x = HexArray(scipy.fft.ifft(F1, axis=1))
 
         if squeeze:
             x = np.squeeze(x)
@@ -250,44 +265,46 @@ class RectPeriodicFFT(HexagonalFFT):
         return rect_unshift(x)
 
 
-def fft(x, hexcrop=False, periodicity="rect", dtype=np.float32):
-    if periodicity == "rect":
-        assert (
-            hexcrop == False
-        ), "Cannot crop to hexagonal region when periodicity is rectangular."
+def fft(x, periodicity="rect"):
 
-    # use mersereau region
-    if hexcrop:
-        assert x.shape[0] == x.shape[1], "Must be a square region."
+    if periodicity == "hex":
+        assert x.shape[0] == x.shape[1], "Input to fft(-, 'hex') must be a square array"
         N = x.shape[0]
+        assert N % 4 == 0, "Array size for periodicity='hex' must be a multiple of 4."
+
         px = hex_to_pgram(x)
         PX = mersereau_fft(px)
         return pgram_to_hex(PX, N, pattern=x.pattern)
 
-    # rectangular region
-    # assert x.shape[1] % 2 == 0
-    X = rect_fft(rect_shift(x))
-    return rect_unshift(X)
+    elif periodicity == "rect":
+        if isinstance(x, HexArray) and x.pattern == "oblique":
+            raise ValueError(
+                "Input array to FFT with rectangular periodicity must be in 'offset' coordinates."
+            )
+        else:
+            x = HexArray(x, "offset")
+
+        X = rect_fft(rect_shift(x))
+        return rect_unshift(X)
+    
+    raise ValueError(f"Unrecognized periodicity option: {periodicity}")
 
 
-def ifft(X, hexcrop=False, periodicity="rect", dtype=np.complex64):
-    if periodicity == "rect":
-        assert (
-            hexcrop == False
-        ), "Cannot crop to hexagonal region when periodicity is rectangular."
-
-    # use mersereau region
-    if hexcrop:
-        assert X.shape[0] == X.shape[1], "Must be a square region."
+def ifft(X, periodicity="rect"):
+    if periodicity == "hex":
+        assert X.shape[0] == X.shape[1], "Input to ifft(-, 'hex') must be a square array"
         N = X.shape[0]
+        assert N % 4 == 0, "Array size for periodicity='hex' must be a multiple of 4."
+
         PX = hex_to_pgram(X)
         px = mersereau_ifft(PX)
         return pgram_to_hex(px, N, pattern=X.pattern)
 
-    # rectangular region
-    # assert X.shape[1] % 2 == 0
-    x = rect_ifft(rect_shift(X))
-    return rect_unshift(x)
+    elif periodicity == "rect":
+        x = rect_ifft(rect_shift(X))
+        return rect_unshift(x)
+    
+    raise ValueError(f"Unrecognized periodicity option: {periodicity}")
 
 
 def mersereau_fft(px):
@@ -297,7 +314,7 @@ def mersereau_fft(px):
     assert M % 2 == 0, "must be a multiple of 2"
 
     dtype = px.dtype
-    cdtype = np.complex64 if dtype == np.float32 else np.complex128
+    cdtype = complex_type(dtype)
 
     F = _hexdft_pgram(px[::2, ::2]).T
     G = _hexdft_pgram(px[::2, 1::2]).T
@@ -316,9 +333,9 @@ def mersereau_fft(px):
         L[:, i + int(M // 2)] = np.roll(_ind, M)
 
     k1, k2 = np.indices(L.shape)
-    W0 = np.exp(-1.0j * 2 * np.pi * (2 * k2 - k1) / (3 * M)) 
-    W1 = np.exp(-1.0j * 2 * np.pi * (2 * k1 - k2) / (3 * M))  
-    W2 = np.exp(-1.0j * 2 * np.pi * (k2 + k1) / (3 * M))
+    W0 = np.exp(-1.0j * 2 * np.pi * (2 * k2 - k1) / (3 * M)).astype(cdtype)
+    W1 = np.exp(-1.0j * 2 * np.pi * (2 * k1 - k2) / (3 * M)).astype(cdtype)
+    W2 = np.exp(-1.0j * 2 * np.pi * (k2 + k1) / (3 * M)).astype(cdtype)
 
     for i in range(int(3 * M**2 / 4)):
         # these 4 indices are
@@ -370,7 +387,7 @@ def mersereau_ifft(PX):
     assert M % 2 == 0, "must be a multiple of 2"
 
     dtype = PX.dtype
-    cdtype = np.complex64 if dtype == np.float32 else np.complex128
+    cdtype = complex_type(dtype)
 
     F = _hexidft_pgram(PX[::2, ::2]).T
     G = _hexidft_pgram(PX[::2, 1::2]).T
@@ -389,9 +406,9 @@ def mersereau_ifft(PX):
         L[:, i + int(M // 2)] = np.roll(_ind, M)
 
     k1, k2 = np.indices(L.shape)
-    W0 = np.exp(-1.0j * 2 * np.pi * (2 * k2 - k1) / (3 * M)) 
-    W1 = np.exp(-1.0j * 2 * np.pi * (2 * k1 - k2) / (3 * M))  
-    W2 = np.exp(-1.0j * 2 * np.pi * (k2 + k1) / (3 * M))
+    W0 = np.exp(-1.0j * 2 * np.pi * (2 * k2 - k1) / (3 * M)).astype(cdtype)
+    W1 = np.exp(-1.0j * 2 * np.pi * (2 * k1 - k2) / (3 * M)).astype(cdtype)  
+    W2 = np.exp(-1.0j * 2 * np.pi * (k2 + k1) / (3 * M)).astype(cdtype)
 
     for i in range(int(3 * M**2 / 4)):
         # these 4 indices are
@@ -512,7 +529,7 @@ def ifftshift(X):
 def _hexdft_pgram(px):
     """"""
     dtype = px.dtype
-    cdtype = np.complex64 if dtype == np.float32 else np.complex128
+    cdtype = complex_type(dtype)
 
     P = px.shape[0]
     p1, p2 = np.meshgrid(np.arange(3 * P), np.arange(P))
@@ -529,7 +546,7 @@ def _hexdft_pgram(px):
 def _hexdft_pgram_stack(px):
     """"""
     dtype = px.dtype
-    cdtype = np.complex64 if dtype == np.float32 else np.complex128
+    cdtype = complex_type(dtype)
 
     nstack, P, _ = px.shape
     p1, p2 = np.meshgrid(np.arange(3 * P), np.arange(P))
@@ -546,8 +563,8 @@ def _hexdft_pgram_stack(px):
 
 def _hexidft_pgram(X):
     """"""
-    cdtype = X.dtype
-    dtype = np.float32 if cdtype == np.complex64 else np.float64
+    dtype = X.dtype
+    cdtype = complex_type(dtype)
 
     P = X.shape[0]
     p1, p2 = np.meshgrid(np.arange(3 * P), np.arange(P))
@@ -562,8 +579,8 @@ def _hexidft_pgram(X):
 
 def _hexidft_pgram_stack(X):
     """"""
-    cdtype = X.dtype
-    dtype = np.float32 if cdtype == np.complex64 else np.float64
+    dtype = X.dtype
+    cdtype = complex_type(dtype)
 
     nstack, P, _ = X.shape
     p1, p2 = np.meshgrid(np.arange(3 * P), np.arange(P))
@@ -595,11 +612,14 @@ def _pgram_kernel(p1, p2, cdtype):
 
 
 def rect_fft(x):
+    dtype = x.dtype
+    cdtype = complex_type(dtype)
+
     N1, N2 = x.shape
-    F1 = HexArray(np.fft.fft(x, axis=0))
+    F1 = HexArray(scipy.fft.fft(x, axis=0))
     exp_factor = np.exp(
         1.0j * np.pi * np.array([i * np.arange(N2) for i in range(N1)]) / N1
-    )
+    ).astype(cdtype)
     F2 = F1 * exp_factor
     F = HexArray(np.fft.fft(F2, axis=1))
 
@@ -607,12 +627,15 @@ def rect_fft(x):
 
 
 def rect_ifft(X):
+    dtype = X.dtype
+    cdtype = complex_type(dtype)
+
     N1, N2 = X.shape
-    F2 = np.fft.ifft(X, axis=1)
+    F2 = scipy.fft.ifft(X, axis=1)
     exp_factor = np.exp(
         -1.0j * np.pi * np.array([i * np.arange(N2) for i in range(N1)]) / N1
-    )
+    ).astype(cdtype)
     F1 = F2 * exp_factor
-    x = HexArray(np.fft.ifft(F1, axis=0))
+    x = HexArray(scipy.fft.ifft(F1, axis=0))
 
     return x

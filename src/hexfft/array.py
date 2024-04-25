@@ -41,19 +41,23 @@ class HexArray(np.ndarray):
     """
 
     def __new__(cls, arr, pattern="oblique"):
-        # Input array is an already formed ndarray instance
-        # We first cast to be our class type
+        # np.ndarray subclass boilerplate
         obj = np.asarray(arr).view(cls)
-        # add the new attribute to the created instance
-        assert arr.ndim in [2, 3], "HexArray can only be of dimension 2 or 3."
+
+        if arr.ndim not in [2, 3]:
+            raise ValueError("HexArray can only be of dimension 2 or 3.")
+        
+        if pattern not in ["oblique", "offset"]:
+            raise ValueError(f"Coordinate system {pattern} is not implemented or unknown.")
+        
         obj.pattern = pattern
         obj.indices = _generate_indices(arr.shape[-2:], pattern)
         obj.grid = _generate_grid(arr.shape[-2:], pattern)
-        # Finally, we must return the newly created object:
+
         return obj
 
+    # np.ndarray subclass boilerplate
     def __array_finalize__(self, obj):
-        # see InfoArray.__array_finalize__ for comments
         if obj is None:
             return
         self.pattern = getattr(obj, "pattern", None)
@@ -71,12 +75,16 @@ def rect_shift(hx):
     :return: a HexArray with "oblique" coordinates with the data
         from hx shifted onto the parallelogram region of support.
     """
+    assert hx.pattern == "offset", "Array must be in 'offset' coordinates."
+
+    N1, N2 = hx.shape[-2:]
+    if N1 < 2 or N2 < 2:
+        raise ValueError("Cannot shift offset array of size less than 2x2.")
+
+    n1, n2 = np.meshgrid(np.arange(N1), np.arange(N2))
+
     # oblique coordinates
     f1, f2 = hx.indices
-
-    # oblique coordinates of new region
-    N1, N2 = hx.shape[-2:]
-    n1, n2 = np.meshgrid(np.arange(N1), np.arange(N2))
 
     # slice from rectangular region to shift
     upper_triangle = f2 >= hx.shape[-1]
@@ -106,10 +114,15 @@ def rect_unshift(hx):
     :return: a HexArray with "offset" coordinates with the data
         from hx shifted onto the parallelogram region of support.
     """
-    out = HexArray(np.zeros(hx.shape, hx.dtype), "offset")
-
+    assert hx.pattern == "oblique", "Array must be in 'oblique' coordinates."
+    
+    N1, N2 = hx.shape[-2:]
+    if N1 < 2 or N2 < 2:
+        raise ValueError("Cannot shift offset array of size less than 2x2.")
     # oblique coordinates
     n1, n2 = hx.indices
+
+    out = HexArray(np.zeros(hx.shape, hx.dtype), "offset")
 
     # oblique coordinates of new region
     f1, f2 = out.indices

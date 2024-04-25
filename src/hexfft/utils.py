@@ -139,3 +139,9 @@ def nice_test_function(shape, hcrop=True, pattern="oblique"):
         m = 1.0
     h[:, :] = (np.cos(n1) + 2 * np.sin((n1 - n2) / 4)) * m
     return h
+
+def complex_type(type):
+    if type in [np.float32, np.complex64]:
+        return np.complex64
+    else:
+        return np.complex128

@@ -107,8 +107,8 @@ def test_pgram_hexdft():
 
 def test_rect_hexdft():
     # test rect dft and idft
-    for size in [4, 5, 8, 9, 16, 17]:
-        N1 = size
+    for shape in [(4, 5), (8, 8), (11, 16), (19, 19)]:
+        N1, N2 = shape
         # N2 must be even
         N2 = N1 + N1 % 2
         n1, n2 = np.meshgrid(np.arange(N1), np.arange(N2))
@@ -179,7 +179,7 @@ def test_rect_fft_stack():
 def test_hex_fft_stack():
     # create a stack of data
     for pattern in ["oblique", "offset"]:
-        for size in [8, 16, 32]:
+        for size in [4, 8, 16, 32]:
             nstack, N1, N2 = 5, size, size
             n1, n2 = np.meshgrid(np.arange(N1), np.arange(N2))
             center = (size // 2, size // 2)
@@ -190,7 +190,7 @@ def test_hex_fft_stack():
 
             DATA_STACK = fftobj.forward(data)
             DATA_LOOP = np.stack(
-                [fft(data[i], True, "hex") for i in range(nstack)]
+                [fft(data[i], "hex") for i in range(nstack)]
             )
             DATA_LOOP = HexArray(DATA_LOOP, pattern)
 
@@ -198,7 +198,7 @@ def test_hex_fft_stack():
 
             ddata_stack = fftobj.inverse(DATA_STACK)
             ddata_loop = np.stack(
-                [ifft(DATA_LOOP[i], True, "hex") for i in range(nstack)]
+                [ifft(DATA_LOOP[i], "hex") for i in range(nstack)]
             )
             ddata_loop = HexArray(ddata_loop, pattern)
 
@@ -207,11 +207,11 @@ def test_hex_fft_stack():
             # test singleton
             ds = data[0]
             DS_STACK = fftobj.forward(ds)
-            DS_SINGLE = fft(ds, True, "hex")
+            DS_SINGLE = fft(ds, "hex")
             assert np.allclose(DS_STACK, DS_SINGLE)
 
             dds_stack = fftobj.inverse(DS_STACK)
-            dds_single = ifft(DS_SINGLE, True, "hex")
+            dds_single = ifft(DS_SINGLE, "hex")
             assert np.allclose(dds_stack, dds_single)
 
 
