@@ -7,8 +7,8 @@ name = "hexfft"
 authors = [
     {name = "Chris Langfield", email = "christopher.langfield@gmail.com"},
 ]
-description = "Hexagonal FFT in Python"
+description = "Hexagonal FFTs in Python"
 readme = "README.md"
 requires-python = ">=3.8"
-keywords = ["one", "two"]
-version = "0.0.1"
+keywords = ["hexagonal", "dsp", "fft"]
+version = "0.1.0"
