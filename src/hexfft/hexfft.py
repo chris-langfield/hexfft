@@ -24,7 +24,6 @@ def FFT(shape, periodicity="rect", dtype=np.complex128):
 
 class HexagonalFFT:
     def __init__(self, shape, dtype):
-
         assert len(shape) == 2, "Only 2D transforms are supported."
         assert dtype in [
             np.complex128,
@@ -48,9 +47,7 @@ class HexagonalFFT:
 
 
 class HexPeriodicFFT(HexagonalFFT):
-
     def __init__(self, shape, dtype):
-
         assert (
             shape[0] == shape[1]
         ), "Input to FFT with hex periodicity must be a square array"
@@ -87,7 +84,6 @@ class HexPeriodicFFT(HexagonalFFT):
         self.conj_W2 = np.conj(self.W2)
 
     def _forward(self, x):
-
         assert (
             x.shape[-2:] == self.shape
         ), f"Input array with shape {x.shape} does not match FFT object shape {self.shape}"
@@ -243,16 +239,16 @@ class RectPeriodicFFT(HexagonalFFT):
         self.phase_shift_conj = np.conj(self.phase_shift)
 
     def _forward(self, x):
-        assert x.shape[-2:] == self.shape
+        assert (
+            x.shape[-2:] == self.shape
+        ), f"Input array with shape {x.shape} does not match FFT object shape {self.shape}"
+        assert isinstance(
+            x, HexArray
+        ), "Input to rectangular periodic FFT must be HexArray."
 
-        if isinstance(x, HexArray) and x.pattern == "oblique":
-            raise ValueError(
-                "Input array to FFT with rectangular periodicity must be in 'offset' coordinates."
-            )
-        else:
-            x = HexArray(x, "offset")
-
-        x = rect_shift(x)
+        shift = x.pattern == "offset"
+        if shift:
+            x = rect_shift(x)
 
         squeeze = x.ndim == 2
         if squeeze:
@@ -265,19 +261,29 @@ class RectPeriodicFFT(HexagonalFFT):
         if squeeze:
             X = np.squeeze(X)
 
-        return rect_unshift(HexArray(X, "oblique"))
+        if shift:
+            X = rect_unshift(HexArray(X, "oblique"))
+        else:
+            X = HexArray(X, "oblique")
+
+        return X
 
     def _inverse(self, X):
-        if isinstance(X, HexArray) and X.pattern == "oblique":
-            _logger.warn(
-                "Passing HexArray with 'oblique' sampling pattern to "
-                "a rectangular periodic FFT."
-            )
+        assert (
+            X.shape[-2:] == self.shape
+        ), f"Input array with shape {X.shape} does not match FFT object shape {self.shape}"
+        assert isinstance(
+            X, HexArray
+        ), "Input to rectangular periodic FFT must be HexArray."
 
-        X = rect_shift(X)
+        shift = X.pattern == "offset"
+        if shift:
+            X = rect_shift(X)
+
         squeeze = X.ndim == 2
         if squeeze:
             X = np.expand_dims(X, 0)
+
         F2 = scipy.fft.ifft(X, axis=2)
         F1 = F2 * self.phase_shift_conj
         x = HexArray(scipy.fft.ifft(F1, axis=1), "oblique")
@@ -285,11 +291,15 @@ class RectPeriodicFFT(HexagonalFFT):
         if squeeze:
             x = np.squeeze(x)
 
-        return rect_unshift(x)
+        if shift:
+            x = rect_unshift(HexArray(x, "oblique"))
+        else:
+            x = HexArray(x, "oblique")
+
+        return x
 
 
 def fft(x, periodicity="rect"):
-
     if periodicity == "hex":
         assert x.shape[0] == x.shape[1], "Input to fft(-, 'hex') must be a square array"
         N = x.shape[0]
@@ -300,15 +310,19 @@ def fft(x, periodicity="rect"):
         return pgram_to_hex(PX, N, pattern=x.pattern)
 
     elif periodicity == "rect":
-        if isinstance(x, HexArray) and x.pattern == "oblique":
-            raise ValueError(
-                "Input array to FFT with rectangular periodicity must be in 'offset' coordinates."
-            )
-        else:
-            x = HexArray(x, "offset")
+        assert isinstance(
+            x, HexArray
+        ), "Input to rectangular periodic FFT must be HexArray."
 
-        X = rect_fft(rect_shift(x))
-        return rect_unshift(X)
+        shift = x.pattern == "offset"
+        if shift:
+            x = rect_shift(x)
+
+        X = rect_fft(x)
+        if shift:
+            X = rect_unshift(X)
+
+        return X
 
     raise ValueError(f"Unrecognized periodicity option: {periodicity}")
 
@@ -326,8 +340,19 @@ def ifft(X, periodicity="rect"):
         return pgram_to_hex(px, N, pattern=X.pattern)
 
     elif periodicity == "rect":
-        x = rect_ifft(rect_shift(X))
-        return rect_unshift(x)
+        assert isinstance(
+            X, HexArray
+        ), "Input to rectangular periodic IFFT must be HexArray."
+        shift = X.pattern == "offset"
+        if shift:
+            X = rect_shift(X)
+
+        x = rect_ifft(X)
+
+        if shift:
+            x = rect_unshift(x)
+
+        return x
 
     raise ValueError(f"Unrecognized periodicity option: {periodicity}")
 

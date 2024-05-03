@@ -36,7 +36,6 @@ def test_HexArray_known_patterns():
 
 
 def test_rect_shift_pathological_inputs():
-
     with pytest.raises(AssertionError, match="must be in 'offset'"):
         _ = rect_shift(h_obl)
 
@@ -51,7 +50,6 @@ def test_rect_shift_pathological_inputs():
 
 
 def test_fft_call():
-
     with pytest.raises(ValueError, match="Unrecognized periodicity"):
         _ = fft(array, "bla")
 
@@ -59,22 +57,21 @@ def test_fft_call():
         _ = ifft(array, "bla")
 
     # forbidden Arrays for hexagonal periodicity
-    with pytest.raises(AssertionError, match="square"):
+    with pytest.raises(AssertionError, match="square"):  # hex fft input must be square
         _ = fft(array[:4, :], "hex")
 
-    with pytest.raises(AssertionError, match="multiple of 4."):
+    with pytest.raises(
+        AssertionError, match="multiple of 4."
+    ):  # hex fft input must be multiple of 4
         _ = fft(array[:10, :10], "hex")
 
-    with pytest.raises(AssertionError, match="square"):
+    with pytest.raises(AssertionError, match="square"):  # hex ifft input must be square
         _ = ifft(array[:4, :], "hex")
 
-    with pytest.raises(AssertionError, match="multiple of 4."):
-        _ = ifft(array[:10, :10], "hex")
-
     with pytest.raises(
-        ValueError, match="Input array to FFT with rectangular periodicity"
-    ):
-        _ = fft(h_obl, "rect")
+        AssertionError, match="multiple of 4."
+    ):  # hex ifft input must be multiple of 4
+        _ = ifft(array[:10, :10], "hex")
 
 
 @pytest.mark.parametrize("per", periodicities)
@@ -100,7 +97,6 @@ def test_FFT_hex_constr():
 
 @pytest.mark.parametrize("pattern", patterns)
 def test_hex_fft_output(pattern):
-
     X = fft(HexArray(array, pattern), "hex")
     assert X.shape == array.shape
     assert X.dtype == np.complex128

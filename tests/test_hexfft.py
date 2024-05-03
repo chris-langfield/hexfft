@@ -129,21 +129,32 @@ def test_rect_hexdft():
 
 
 def test_rect_fft():
-    for shape in [(4, 5), (8, 8), (11, 16), (19, 19)]:
-        N1, N2 = shape
-        n1, n2 = np.meshgrid(np.arange(N1), np.arange(N2))
-        center = (N1 // 2 - 1, N2 // 2 - 1)
-        d = rect_shift(hregion(n1, n2, center, 1, "offset"))
+    for pattern in ["oblique", "offset"]:
+        for shape in [(4, 5), (8, 8), (11, 16), (19, 19)]:
+            N1, N2 = shape
+            n1, n2 = np.meshgrid(np.arange(N1), np.arange(N2))
+            center = (N1 // 2 - 1, N2 // 2 - 1)
+            d = rect_shift(hregion(n1, n2, center, 1, "offset"))
 
-        D = rect_fft(d)
-        D_slow = _rect_dft_slow(d)
+            D = rect_fft(d)
+            D_slow = _rect_dft_slow(d)
 
-        assert np.allclose(D, D_slow)
+            assert np.allclose(D, D_slow)
 
-        dd = rect_ifft(rect_unshift(D))
-        dd_slow = _rect_idft_slow(rect_unshift(D_slow))
+            dd = rect_ifft(D)
+            dd_slow = _rect_idft_slow(D_slow)
 
-        assert np.allclose(dd, dd_slow)
+            assert np.allclose(dd, dd_slow)
+
+
+# def test_validate_rect_fft():
+#     for shape in [ (8, 8), (11, 16), (19, 19)]:
+#         N1, N2 = shape
+#         n1, n2 = np.meshgrid(np.arange(N1), np.arange(N2), indexing="ij")
+#         mode1 = HexArray(np.exp(-2 * np.pi * 1.0j * n1/N1), "oblique")
+
+#         M1 = fft(rect_unshift(mode1))
+#         assert np.real(M1[0, 1]) == 1.
 
 
 def test_rect_fft_stack():
@@ -181,6 +192,39 @@ def test_rect_fft_stack():
 
     dds_stack = fftobj.inverse(DS_STACK)
     dds_single = rect_unshift(rect_ifft(rect_shift(DS_SINGLE)))
+    assert np.allclose(dds_stack, dds_single)
+
+
+def test_rect_fft_stack_noshift():
+    # create a stack of data
+    nstack, N1, N2 = 5, 8, 12
+    n1, n2 = np.meshgrid(np.arange(N1), np.arange(N2))
+    center = (N1 / 2 - 1, N2 / 2 - 1)
+    data = np.stack([hregion(n1, n2, center, i).T for i in range(1, nstack + 1)])
+    data = HexArray(data, "oblique")
+
+    fftobj = FFT((N1, N2), periodicity="rect")
+    DATA_STACK = fftobj.forward(data)
+
+    DATA_LOOP = np.stack([rect_fft(data[i]) for i in range(nstack)])
+    DATA_LOOP = HexArray(DATA_LOOP, "offset")
+
+    assert np.allclose(DATA_STACK, DATA_LOOP)
+
+    ddata_stack = fftobj.inverse(DATA_STACK)
+    ddata_loop = np.stack([rect_ifft(DATA_LOOP[i]) for i in range(nstack)])
+    ddata_loop = HexArray(ddata_loop, "offset")
+
+    assert np.allclose(ddata_stack, ddata_loop)
+
+    # test singleton
+    ds = data[0]
+    DS_STACK = fftobj.forward(ds)
+    DS_SINGLE = rect_fft(ds)
+    assert np.allclose(DS_STACK, DS_SINGLE)
+
+    dds_stack = fftobj.inverse(DS_STACK)
+    dds_single = rect_ifft(DS_SINGLE)
     assert np.allclose(dds_stack, dds_single)
 
 
