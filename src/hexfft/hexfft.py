@@ -234,7 +234,7 @@ class RectPeriodicFFT(HexagonalFFT):
     def _precompute(self):
         N1, N2 = self.shape
         self.phase_shift = np.exp(
-            1.0j * np.pi * np.array([i * np.arange(N2) for i in range(N1)]) / N1
+            1.0j * np.pi * np.array([i * np.arange(N2) for i in range(N1)]) / N2
         )
         self.phase_shift_conj = np.conj(self.phase_shift)
 
@@ -254,9 +254,9 @@ class RectPeriodicFFT(HexagonalFFT):
         if squeeze:
             x = np.expand_dims(x, 0)
 
-        F1 = scipy.fft.fft(x, axis=1)
+        F1 = scipy.fft.fft(x, axis=2)
         F2 = F1 * self.phase_shift
-        X = scipy.fft.fft(F2, axis=2)
+        X = scipy.fft.fft(F2, axis=1)
 
         if squeeze:
             X = np.squeeze(X)
@@ -284,9 +284,9 @@ class RectPeriodicFFT(HexagonalFFT):
         if squeeze:
             X = np.expand_dims(X, 0)
 
-        F2 = scipy.fft.ifft(X, axis=2)
+        F2 = scipy.fft.ifft(X, axis=1)
         F1 = F2 * self.phase_shift_conj
-        x = HexArray(scipy.fft.ifft(F1, axis=1), "oblique")
+        x = HexArray(scipy.fft.ifft(F1, axis=2), "oblique")
 
         if squeeze:
             x = np.squeeze(x)
@@ -668,12 +668,12 @@ def rect_fft(x):
     cdtype = complex_type(dtype)
 
     N1, N2 = x.shape
-    F1 = HexArray(scipy.fft.fft(x, axis=0), "oblique")
+    F1 = scipy.fft.fft(x, axis=1)
     exp_factor = np.exp(
-        1.0j * np.pi * np.array([i * np.arange(N2) for i in range(N1)]) / N1
+        1.0j * np.pi * np.array([i * np.arange(N2) for i in range(N1)]) / N2
     ).astype(cdtype)
     F2 = F1 * exp_factor
-    F = HexArray(np.fft.fft(F2, axis=1), "oblique")
+    F = HexArray(scipy.fft.fft(F2, axis=0), "oblique")
 
     return F
 
@@ -683,11 +683,11 @@ def rect_ifft(X):
     cdtype = complex_type(dtype)
 
     N1, N2 = X.shape
-    F2 = scipy.fft.ifft(X, axis=1)
+    F2 = scipy.fft.ifft(X, axis=0)
     exp_factor = np.exp(
-        -1.0j * np.pi * np.array([i * np.arange(N2) for i in range(N1)]) / N1
+        -1.0j * np.pi * np.array([i * np.arange(N2) for i in range(N1)]) / N2
     ).astype(cdtype)
     F1 = F2 * exp_factor
-    x = HexArray(scipy.fft.ifft(F1, axis=0), "oblique")
+    x = HexArray(scipy.fft.ifft(F1, axis=1), "oblique")
 
     return x
