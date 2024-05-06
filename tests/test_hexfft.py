@@ -26,6 +26,7 @@ from hexfft.reference import (
     _rect_idft_slow,
 )
 import numpy as np
+import pytest
 
 
 def hregion(n1, n2, center, size, pattern="oblique"):
@@ -112,7 +113,8 @@ def test_pgram_hexdft():
         assert np.allclose(impulse_p, impulse_p_T, atol=1e-12)
 
 
-def test_rect_hexdft():
+@pytest.mark.skip(reason="reference slow DFT implementation TODO")
+def test_rect_dft():
     # test rect dft and idft
     for shape in [(4, 5), (8, 8), (11, 16), (19, 19)]:
         N1, N2 = shape
@@ -124,10 +126,10 @@ def test_rect_hexdft():
 
         D = _rect_dft_slow(d)
         dd = _rect_idft_slow(D)
-
         assert np.allclose(d, dd, atol=1e-12)
 
 
+@pytest.mark.skip(reason="reference slow DFT implementation TODO")
 def test_rect_fft():
     for pattern in ["oblique", "offset"]:
         for shape in [(4, 5), (8, 8), (11, 16), (19, 19)]:
@@ -147,14 +149,18 @@ def test_rect_fft():
             assert np.allclose(dd, dd_slow)
 
 
-# def test_validate_rect_fft():
-#     for shape in [ (8, 8), (11, 16), (19, 19)]:
-#         N1, N2 = shape
-#         n1, n2 = np.meshgrid(np.arange(N1), np.arange(N2), indexing="ij")
-#         mode1 = HexArray(np.exp(-2 * np.pi * 1.0j * n1/N1), "oblique")
+@pytest.mark.parametrize("shape", [(16, 16), (17, 17), (16, 17), (17, 16)])
+@pytest.mark.parametrize("mode", [(0, 0), (1, 0), (0, 1), (1, 1), (2, 2), (5, 7)])
+def test_validate_rect_fft(shape, mode):
+    N1, N2 = shape
+    k1, k2 = mode
+    n1, n2 = np.meshgrid(np.arange(N2), np.arange(N1))
+    fmode = HexArray(
+        np.exp(2 * np.pi * 1.0j * (k1 * (n1 - n2 / 2) / N2 + k2 * n2 / N1)), "oblique"
+    )
+    FMODE = rect_fft(fmode)
 
-#         M1 = fft(rect_unshift(mode1))
-#         assert np.real(M1[0, 1]) == 1.
+    assert np.allclose(FMODE[k2, k1], N1 * N2)
 
 
 def test_rect_fft_stack():
