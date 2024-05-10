@@ -111,6 +111,35 @@ def pgram_to_hex(p, N, pattern="oblique"):
     return HexArray(h, pattern)
 
 
+def filter_shift(x):
+    """
+    Shift the quadrants of a HexArray to move the origin to/from
+    the center of the grid. Useful if a filter kernel is easier to define
+    the origin at the center of the grid.
+    """
+    if not isinstance(x, HexArray):
+        x = HexArray(x)
+
+    N1, N2 = x.shape
+    out = HexArray(np.zeros_like(x), x.pattern)
+
+    regI = x[N1 // 2 :, : N2 // 2]
+    regII = x[N1 // 2 :, N2 // 2 :]
+    regIII = x[: N1 // 2, : N2 // 2]
+    regIV = x[: N1 // 2, N2 // 2 :]
+
+    # II to I
+    out[: N1 // 2, : N2 // 2] = regII
+    # I to IV
+    out[: N1 // 2, N2 // 2 :] = regI
+    # III to II
+    out[N1 // 2 :, N2 // 2 :] = regIII
+    # IV to III
+    out[N1 // 2 :, : N2 // 2] = regIV
+
+    return out
+
+
 def nice_test_function(shape, hcrop=True, pattern="oblique"):
     h = HexArray(np.zeros(shape), pattern)
     N1, N2 = shape
