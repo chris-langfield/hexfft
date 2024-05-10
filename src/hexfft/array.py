@@ -2,7 +2,7 @@ import numpy as np
 from hexfft.grids import heshgrid, skew_heshgrid
 
 
-def _generate_indices(shape, pattern):
+def generate_indices(shape, pattern):
     N1, N2 = shape
     n1, n2 = np.meshgrid(np.arange(N1), np.arange(N2))
 
@@ -14,7 +14,7 @@ def _generate_indices(shape, pattern):
     return n1, n2
 
 
-def _generate_grid(shape, pattern):
+def generate_grid(shape, pattern):
     if pattern == "oblique":
         return skew_heshgrid(shape)
     elif pattern == "offset":
@@ -53,8 +53,8 @@ class HexArray(np.ndarray):
             )
 
         obj.pattern = pattern
-        obj.indices = _generate_indices(arr.shape[-2:], pattern)
-        obj.grid = _generate_grid(arr.shape[-2:], pattern)
+        obj.indices = generate_indices(arr.shape[-2:], pattern)
+        obj.grid = generate_grid(arr.shape[-2:], pattern)
 
         return obj
 

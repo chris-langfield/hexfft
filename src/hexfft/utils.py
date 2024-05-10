@@ -1,5 +1,5 @@
 import numpy as np
-from hexfft.array import HexArray, _generate_indices
+from hexfft.array import HexArray, generate_indices
 from hexfft.grids import heshgrid, skew_heshgrid
 
 
@@ -14,7 +14,7 @@ def hsupport(N, pattern="oblique"):
     :param h: a HexArray
     """
     # assert N1 % 2 == 0, "Side length must be even."
-    n1, n2 = _generate_indices((N, N), pattern)
+    n1, n2 = generate_indices((N, N), pattern)
     M = N // 2
     if pattern == "offset":
         n2 = n2 - N // 4
