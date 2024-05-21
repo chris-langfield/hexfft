@@ -73,4 +73,4 @@ pytest tests/
 ---------------------------------------
 > R. M. Mersereau, "The processing of hexagonally sampled two-dimensional signals," in Proceedings of the IEEE, vol. 67, no. 6, pp. 930-949, June 1979, doi: 10.1109/PROC.1979.11356
 
-> Ehrhardt, J. C. (1993). Hexagonal fast Fourier transform with rectangular output. In IEEE Transactions on Signal Processing (Vol. 41, Issue 3, pp. 1469–1472). Institute of Electrical and Electronics Engineers (IEEE). https://doi.org/10.1109/78.205759 
+> J. C. Ehrhardt, “Hexagonal fast Fourier transform with rectangular output,” IEEE Transactions on Signal Processing, vol. 41, no. 3. Institute of Electrical and Electronics Engineers (IEEE), pp. 1469–1472, Mar. 1993. doi: 10.1109/78.205759. 
