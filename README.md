@@ -7,7 +7,7 @@ A Python package aiming to provide an easy and efficient interface to various im
 ## Get started
 
 #### Plot hexagonally sampled 2D signals
-```
+```python
 from hexfft import HexArray
 from hexfft.plot import hexshow
 import numpy as np
