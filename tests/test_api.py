@@ -1,4 +1,4 @@
-from hexfft import HexArray, fft, ifft, FFT, fftshift, ifftshift
+from hexfft import HexArray, fft, ifft, FFT
 from hexfft.array import rect_shift, rect_unshift
 import numpy as np
 import pytest

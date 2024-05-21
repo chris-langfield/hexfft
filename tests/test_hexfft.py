@@ -1,4 +1,4 @@
-from hexfft import fftshift, ifftshift, HexArray
+from hexfft import fft, ifft, FFT, HexArray
 from hexfft.hexfft import (
     _hexdft_pgram,
     _hexidft_pgram,
@@ -8,15 +8,14 @@ from hexfft.hexfft import (
     mersereau_ifft,
     rect_fft,
     rect_ifft,
-    FFT,
-    fft,
-    ifft,
 )
 from hexfft.utils import (
     hsupport,
     pgram_to_hex,
     nice_test_function,
     hex_to_pgram,
+    fftshift,
+    ifftshift,
 )
 from hexfft.array import rect_shift, rect_unshift
 from hexfft.reference import (

@@ -111,14 +111,88 @@ def pgram_to_hex(p, N, pattern="oblique"):
     return HexArray(h, pattern)
 
 
-def filter_shift(x):
+def fftshift(X):
+    N = X.shape[0]
+    n1, n2 = X.indices
+    m = hsupport(N, X.pattern).astype(bool)
+    shifted = HexArray(np.zeros_like(X), X.pattern)
+    if X.pattern == "oblique":
+        regI = (n1 < N // 2) & (n2 < N // 2)
+        regII = m & (n1 < n2) & (n2 >= N // 2)
+        regIII = m & (n2 <= n1) & (n1 >= N // 2)
+
+        _regI = (n1 >= N // 2) & (n2 >= N // 2)
+        _regII = m & (n1 >= n2) & (n2 < N // 2)
+        _regIII = m & (n2 > n1) & (n1 < N // 2)
+
+        shifted[_regI] = X[regI]
+        shifted[_regII] = X[regII]
+        shifted[_regIII] = X[regIII]
+
+    elif X.pattern == "offset":
+        m = m.T
+        n2 = n2 - N // 4
+        regI = m & (n1 < N // 2) & (n2 < N // 2)
+        regII = m & (n1 <= n2) & (n2 >= N // 2)
+        regIII = m & (n2 < n1) & (n1 >= N // 2)
+
+        _regI = m & (n1 >= N // 2) & (n2 >= N // 2)
+        _regII = m & (n1 > n2) & (n2 < N // 2)
+        _regIII = m & (n2 >= n1) & (n1 < N // 2)
+
+        shifted[_regI.T] = X[regI.T]
+        shifted[_regII.T] = X[regII.T]
+        shifted[_regIII.T] = X[regIII.T]
+
+    return shifted
+
+
+def ifftshift(X):
+    N = X.shape[0]
+    n1, n2 = X.indices
+    m = hsupport(N, X.pattern).astype(bool)
+    shifted = HexArray(np.zeros_like(X), X.pattern)
+
+    if X.pattern == "oblique":
+        _regI = (n1 < N // 2) & (n2 < N // 2)
+        _regII = m & (n1 < n2) & (n2 >= N // 2)
+        _regIII = m & (n2 <= n1) & (n1 >= N // 2)
+
+        regI = (n1 >= N // 2) & (n2 >= N // 2)
+        regII = m & (n1 >= n2) & (n2 < N // 2)
+        regIII = m & (n2 > n1) & (n1 < N // 2)
+
+        shifted[_regI] = X[regI]
+        shifted[_regII] = X[regII]
+        shifted[_regIII] = X[regIII]
+
+    elif X.pattern == "offset":
+        m = m.T
+        n2 = n2 - N // 4
+        regI = m & (n1 < N // 2) & (n2 < N // 2)
+        regII = m & (n1 <= n2) & (n2 >= N // 2)
+        regIII = m & (n2 < n1) & (n1 >= N // 2)
+
+        _regI = m & (n1 >= N // 2) & (n2 >= N // 2)
+        _regII = m & (n1 > n2) & (n2 < N // 2)
+        _regIII = m & (n2 >= n1) & (n1 < N // 2)
+
+        shifted[regI.T] = X[_regI.T]
+        shifted[regII.T] = X[_regII.T]
+        shifted[regIII.T] = X[_regIII.T]
+
+    return shifted
+
+
+def filter_shift(x, periodicity="rect"):
     """
-    Shift the quadrants of a HexArray to move the origin to/from
+    Shift the quadrants/thirds of a HexArray to move the origin to/from
     the center of the grid. Useful if a filter kernel is easier to define
     the origin at the center of the grid.
     """
-    if not isinstance(x, HexArray):
-        x = HexArray(x)
+
+    if periodicity == "hex":
+        return ifftshift(x)
 
     N1, N2 = x.shape
     out = HexArray(np.zeros_like(x), x.pattern)
