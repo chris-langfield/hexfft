@@ -35,11 +35,22 @@ from hexfft import FFT
 shape = (32, 32)
 
 fftobj = FFT(shape, periodicity="hex") # or "rect"
+x = np.random.normal(size=(10, 32, 32))
 X = fftobj.forward(x)
 xx = fftobj.inverse(X)
 
 ...
 ```
+
+#### Example notebooks
+
+[1 - `HexArray` and visualization](https://github.com/chris-langfield/hexfft/blob/main/examples/HexArray.ipynb)
+
+[2 - FFT with rectangular periodicity](https://github.com/chris-langfield/hexfft/blob/main/examples/RectangularPeriodicity.ipynb)
+
+[3 - FFT with hexagonal periodicity](https://github.com/chris-langfield/hexfft/blob/main/examples/HexagonalPeriodicity.ipynb)
+
+[4 - Basic filtering example](https://github.com/chris-langfield/hexfft/blob/main/examples/BasicFiltering.ipynb)
 
 ## Install
 
