@@ -2,6 +2,22 @@
 
 A Python package aiming to provide an easy and efficient interface to various implementations of the [Hexagonal Fast Fourier Transform](https://en.wikipedia.org/wiki/Hexagonal_fast_Fourier_transform).
 
+### Install
+
+```
+pip install hexfft
+```
+
+The only dependencies are `numpy`, `scipy`, and `matplotlib`. `pytest` is required to run the tests.
+
+#### Developer install
+
+```
+git clone git@github.com:chris-langfield/hexfft.git
+pip install -e hexfft/
+cd hexfft
+pytest tests/
+```
 
 ---------------------------------------
 > R. M. Mersereau, "The processing of hexagonally sampled two-dimensional signals," in Proceedings of the IEEE, vol. 67, no. 6, pp. 930-949, June 1979, doi: 10.1109/PROC.1979.11356
