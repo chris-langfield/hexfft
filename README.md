@@ -18,6 +18,29 @@ hexshow(h)
 ```
 ![Screenshot 2024-05-21 at 1 06 04 PM](https://github.com/chris-langfield/hexfft/assets/34426450/92d11a97-8b64-4d3f-9ac9-c612aa4b5437)
 
+#### Perform FFT for rectangularly or hexagonally periodic signals
+
+```python
+from hexfft import fft, ifft
+
+X = fft(h)
+X_hx = fft(h, periodicity="hex")
+```
+
+#### Operate on a 3D stack
+
+```python
+from hexfft import FFT
+
+shape = (32, 32)
+
+fftobj = FFT(shape, periodicity="hex") # or "rect"
+X = fftobj.forward(x)
+xx = fftobj.inverse(X)
+
+...
+```
+
 ## Install
 
 ```
