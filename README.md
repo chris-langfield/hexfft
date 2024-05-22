@@ -24,7 +24,6 @@ hexshow(h)
 from hexfft import fft, ifft
 
 X = fft(h)
-X_hx = fft(h, periodicity="rect") # or "hex"
 ```
 
 #### Operate on a 3D stack
