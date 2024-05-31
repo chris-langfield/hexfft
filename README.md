@@ -4,6 +4,8 @@
 
 A Python package aiming to provide an easy and efficient interface to various implementations of the [Hexagonal Fast Fourier Transform](https://en.wikipedia.org/wiki/Hexagonal_fast_Fourier_transform).
 
+See this [blog post](https://chris-langfield.github.io/hex) for background. 
+
 ## Get started
 
 #### Plot hexagonally sampled 2D signals
